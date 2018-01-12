@@ -1,0 +1,68 @@
+﻿<UserControl x:Class="LS.MapClean.Addin.View.EntitySelectView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:convs="clr-namespace:LS.MapClean.Addin.View.Converters"
+             xmlns:frmwork="clr-namespace:LS.MapClean.Addin.Framework"
+             Background="Transparent"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="400"
+             frmwork:DialogRegister.IsRegisteredView="True">
+    <UserControl.Resources>
+        <convs:FlipBoolConverter x:Key="FlipBoolConverter"/>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="要清理和固定那些对象：" Margin="3" FontSize="14" FontWeight="Bold"/>
+        <GroupBox Grid.Row="1" Margin="6,3" Padding="3" Header="要包括在图形清理中的对象">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" >
+                    <RadioButton Margin="3" Content="全部选择" IsChecked="{Binding IsSelectAll}" VerticalAlignment="Center"/>
+                    <RadioButton Margin="10,3,3,3" Content="手动选择" IsChecked="{Binding IsSelectAll, Converter={StaticResource FlipBoolConverter}}" VerticalAlignment="Center"/>
+                    <Button Padding="2" Margin="3" Command="{Binding SelectEntitiesCommand}" 
+                            VerticalAlignment="Center" ToolTip="选择要清理实体">
+                        <Image Source="pack://application:,,,/LS.MapClean.Addin;component/Images/select_entity.png" Height="16" Width="16"/>
+                    </Button>
+                </StackPanel>
+                <DockPanel FlowDirection="RightToLeft">
+                    <Button Padding="2" Margin="3" Command="{Binding SelectLayersCommand}" 
+                            VerticalAlignment="Center" ToolTip="选择要清理实体的图层">
+                        <Image Source="pack://application:,,,/LS.MapClean.Addin;component/Images/layers.png" Height="16" Width="16"/>
+                    </Button>
+                    <DockPanel HorizontalAlignment="Stretch" FlowDirection="LeftToRight">
+                        <TextBlock Text="图层:" Margin="3" VerticalAlignment="Center"/>
+                        <TextBox HorizontalAlignment="Stretch" Margin="3" Text="{Binding LayersText}" VerticalAlignment="Center" IsReadOnly="True"/>
+                    </DockPanel>
+                </DockPanel>
+                <TextBlock Margin="3" Text="{Binding EntitySelectText}"/>
+            </StackPanel>
+        </GroupBox>
+        <GroupBox Grid.Row="2" Margin="6,3" Padding="3" Header="图形清理中要固定的对象">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="手动选择:" Margin="3" VerticalAlignment="Center"/>
+                    <Button Padding="2" Margin="3" Command="{Binding SelectFixEntitiesCommand}" 
+                            VerticalAlignment="Center" ToolTip="选择要固定实体">
+                        <Image Source="pack://application:,,,/LS.MapClean.Addin;component/Images/select_entity.png" Height="16" Width="16"/>
+                    </Button>
+                </StackPanel>
+                <DockPanel FlowDirection="RightToLeft">
+                    <Button Padding="2" Margin="3" Command="{Binding SelectFixLayersCommand}" 
+                            VerticalAlignment="Center" HorizontalAlignment="Right" ToolTip="选择要固定实体的图层">
+                        <Image Source="pack://application:,,,/LS.MapClean.Addin;component/Images/layers.png" Height="16" Width="16"/>
+                    </Button>
+                    <DockPanel HorizontalAlignment="Stretch" FlowDirection="LeftToRight">
+                        <TextBlock Text="图层:" Margin="3" VerticalAlignment="Center"/>
+                        <TextBox HorizontalAlignment="Stretch" Margin="3" Text="{Binding FixLayersText}" VerticalAlignment="Center" IsReadOnly="True"/>
+                    </DockPanel>
+                </DockPanel>
+                <TextBlock Margin="3" Text="{Binding FixEntitySelectText}"/>
+            </StackPanel>
+        </GroupBox>
+    </Grid>
+</UserControl>

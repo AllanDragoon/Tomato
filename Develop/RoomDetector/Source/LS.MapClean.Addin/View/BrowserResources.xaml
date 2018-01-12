@@ -1,0 +1,22 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Color x:Key="BackgroundLineBule"  A="255" R="240" G="248" B="253" />
+    <Color x:Key="BackgroundBule"  A="255" R="212" G="222" B="232" />
+    <Color x:Key="BorderSelectedColor" A="255" R="1" G="96" B="191"/>
+    <Color x:Key="BorderKillFocusColor" A="255" R="218" G="218" B="218"/>
+    <Color x:Key="KillFoucsBackgroundColor" A="255" R="247" G="247" B="247"/>
+
+    <LinearGradientBrush x:Key="SelectedBackgroundBrush" StartPoint="0.5, 0" EndPoint="0.5, 1" >
+        <GradientStop Color="{StaticResource BackgroundLineBule}" Offset="0" />
+        <GradientStop Color="{StaticResource BackgroundBule}" Offset="1" />
+    </LinearGradientBrush>
+
+    <SolidColorBrush x:Key="SelectedBackgroundBrush2" Color="{StaticResource BackgroundBule}"/>
+
+    <SolidColorBrush x:Key="KillFoucsBackgroundBrush" Color="{StaticResource KillFoucsBackgroundColor}"/>
+    <SolidColorBrush x:Key="BorderSelectedBrush" Color="{StaticResource BorderSelectedColor}"/>
+    <SolidColorBrush x:Key="BorderKillFocusBrush" Color="{StaticResource BorderKillFocusColor}" />
+
+    
+</ResourceDictionary>

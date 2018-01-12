@@ -1,0 +1,144 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Color x:Key="DefaultBackgroundColor">#FFEBECEF</Color>
+    <Color x:Key="DefaultForegroundColor">#FF201F35</Color>
+    <SolidColorBrush x:Key="Text.Foreground" Color="{StaticResource DefaultForegroundColor}" />
+    <SolidColorBrush x:Key="Button.Background" Color="Transparent" />
+    <SolidColorBrush x:Key="Button.BorderBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="CheckBox.Background" Color="Transparent" />
+    <SolidColorBrush x:Key="CheckBox.BorderBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="CheckBox.DefaultState.Border1" Color="#FF9DA0AA" />
+    <LinearGradientBrush x:Key="CheckBox.DefaultState.Border2" EndPoint="1,1" StartPoint="0,0">
+        <GradientStop Color="#FFEBEDF0" Offset="0" />
+        <GradientStop Color="#FFDCDEE4" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="CheckBox.DefaultState.Border3" EndPoint="1,1" StartPoint="0,0">
+        <GradientStop Color="#FFD0D2DA" Offset="0" />
+        <GradientStop Color="#FFD7DAE0" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="CheckBox.DefaultState.Border4" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="CheckBox.HoverState.Border1" Color="#FF9DA0AA" />
+    <LinearGradientBrush x:Key="CheckBox.HoverState.Border2" EndPoint="1,1" StartPoint="0,0">
+        <GradientStop Color="#FFDBE5FD" Offset="0" />
+        <GradientStop Color="#FFBFD1FB" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="CheckBox.HoverState.Border3" EndPoint="1,1" StartPoint="0,0">
+        <GradientStop Color="#FF8B9DD0" Offset="0" />
+        <GradientStop Color="#FF9EB1DF" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="CheckBox.HoverState.Border4" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="CheckBox.PressedState.Border1" Color="#FF656874" />
+    <LinearGradientBrush x:Key="CheckBox.PressedState.Border2" EndPoint="1,1" StartPoint="0,0">
+        <GradientStop Color="#FFAEAFB4" Offset="0" />
+        <GradientStop Color="#FFCFD1D7" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="CheckBox.PressedState.Border3" EndPoint="1,1" StartPoint="0,0">
+        <GradientStop Color="#FFB0B2BA" Offset="0" />
+        <GradientStop Color="#FFD1D3DA" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="CheckBox.PressedState.Border4" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="CheckBox.CheckIcon.Fill" Color="#FF201F35" />
+    <LinearGradientBrush x:Key="CheckBox.IndeterminateState.Border1" EndPoint="0.5,1" StartPoint="0.5,0">
+        <GradientStop Color="#FF5F81D1" Offset="0" />
+        <GradientStop Color="#FF5F81D1" Offset="1" />
+        <GradientStop Color="#FF3151A8" Offset="0.5" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="CheckBox.IndeterminateState.Border2" EndPoint="0.5,1" StartPoint="0.5,0">
+        <GradientStop Color="#FFCDDCFA" Offset="0" />
+        <GradientStop Color="#FFCDDCFA" Offset="1" />
+        <GradientStop Color="#FF7A9BE5" Offset="0.5" />
+    </LinearGradientBrush>
+    
+    <Style x:Key="CheckBoxFocusTemplate" TargetType="{x:Type Rectangle}">
+        <Setter Property="Shape.Stroke" Value="#FF6699FF" />
+        <Setter Property="Shape.StrokeThickness" Value="2" />
+        <Setter Property="FrameworkElement.Margin" Value="-1" />
+        <Setter Property="Rectangle.RadiusX" Value="0" />
+        <Setter Property="Rectangle.RadiusY" Value="0" />
+        <Setter Property="UIElement.Opacity" Value="0.5" />
+        <Setter Property="UIElement.IsHitTestVisible" Value="False" />
+    </Style>
+    <Style x:Key="CheckBoxIconTemplate" TargetType="{x:Type Path}">
+        <Setter Property="Path.Data" Value="F1M1442,967L1444,967 1446,970 1447,970 1454,959 1456,959 1447,973 1446,973 1442,967z" />
+        <Setter Property="Shape.Fill" Value="{DynamicResource CheckBox.DefaultState.CheckIcon.Fill}" />
+        <Setter Property="FrameworkElement.FlowDirection" Value="LeftToRight" />
+        <Setter Property="FrameworkElement.Width" Value="14" />
+        <Setter Property="FrameworkElement.Height" Value="14" />
+        <Setter Property="FrameworkElement.HorizontalAlignment" Value="Center" />
+        <Setter Property="FrameworkElement.VerticalAlignment" Value="Center" />
+        <Setter Property="Shape.Stretch" Value="Fill" />
+        <Setter Property="UIElement.SnapsToDevicePixels" Value="True" />
+        <Setter Property="FrameworkElement.UseLayoutRounding" Value="False" />
+    </Style>
+    
+    <Style x:Key="CheckBoxDxStyle" TargetType="{x:Type CheckBox}">
+        <Setter Property="FrameworkElement.FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Control.Foreground" Value="{StaticResource Text.Foreground}" />
+        <Setter Property="Control.Background" Value="{StaticResource Button.Background}" />
+        <Setter Property="Control.BorderBrush" Value="{StaticResource Button.BorderBrush}" />
+        <Setter Property="Control.BorderThickness" Value="1" />
+        <Setter Property="Control.Padding" Value="4,0,0,0" />
+        <Setter Property="UIElement.SnapsToDevicePixels" Value="True" />
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type CheckBox}">
+                    <Grid Name="Root" Background="#00FFFFFF" HorizontalAlignment="Left" SnapsToDevicePixels="{TemplateBinding UIElement.SnapsToDevicePixels}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid Width="14" Height="14" Grid.Column="0" Grid.ColumnSpan="1">
+                            <Grid Name="DefaultState">
+                                <Border Background="{StaticResource CheckBox.DefaultState.Border2}" BorderBrush="{StaticResource CheckBox.DefaultState.Border1}" BorderThickness="1">
+                                    <Border Background="{StaticResource CheckBox.DefaultState.Border4}" BorderBrush="{StaticResource CheckBox.DefaultState.Border3}" BorderThickness="1" Margin="1" />
+                                </Border>
+                            </Grid>
+                            <Grid Name="FocusState" Opacity="0">
+                                <Rectangle Style="{StaticResource CheckBoxFocusTemplate}" />
+                            </Grid>
+                            <Grid Name="HoverState" Opacity="0">
+                                <Border Background="{StaticResource CheckBox.HoverState.Border2}" BorderBrush="{StaticResource CheckBox.HoverState.Border1}" BorderThickness="1">
+                                    <Border Background="{StaticResource CheckBox.HoverState.Border4}" BorderBrush="{StaticResource CheckBox.HoverState.Border3}" BorderThickness="1" Margin="1" />
+                                </Border>
+                            </Grid>
+                            <Grid Name="PressedState" Opacity="0">
+                                <Border Background="{StaticResource CheckBox.PressedState.Border2}" BorderBrush="{StaticResource CheckBox.PressedState.Border1}" BorderThickness="1">
+                                    <Border Background="{StaticResource CheckBox.PressedState.Border4}" BorderBrush="{StaticResource CheckBox.PressedState.Border3}" BorderThickness="1" Margin="1" />
+                                </Border>
+                            </Grid>
+                            <Border Name="IndeterminateState" Background="{StaticResource CheckBox.IndeterminateState.Border2}" BorderBrush="{StaticResource CheckBox.IndeterminateState.Border1}" BorderThickness="1" Width="10" Height="10" Padding="1" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0" />
+                            <!--<Path Name="CheckIcon" Fill="#FF201F35" Style="{StaticResource CheckBoxIconTemplate}" Margin="1,-1,-1,1" Opacity="0" />-->
+                            <Path Name="CheckIcon" Fill="Green" Style="{StaticResource CheckBoxIconTemplate}" Margin="1,-1,-1,1" Opacity="0" />
+                        </Grid>
+                        <ContentPresenter Name="ContentPresenter" Margin="{TemplateBinding Control.Padding}" HorizontalAlignment="{TemplateBinding Control.HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding Control.VerticalContentAlignment}" Grid.Column="1" Grid.ColumnSpan="1" RecognizesAccessKey="True" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="ToggleButton.IsThreeState" Value="True" />
+                                <Condition Property="ToggleButton.IsChecked" Value="False" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="IndeterminateState" Property="UIElement.Opacity" Value="1" />
+                            <Setter TargetName="CheckIcon" Property="UIElement.Opacity" Value="0" />
+                        </MultiTrigger>
+                        <Trigger Property="ToggleButton.IsChecked" Value="True">
+                            <Setter TargetName="CheckIcon" Property="UIElement.Opacity" Value="1" />
+                            <Setter TargetName="IndeterminateState" Property="UIElement.Opacity" Value="0" />
+                        </Trigger>
+                        <Trigger Property="UIElement.IsMouseOver" Value="True">
+                            <Setter TargetName="HoverState" Property="UIElement.Opacity" Value="1" />
+                        </Trigger>
+                        <Trigger Property="ButtonBase.IsPressed" Value="True">
+                            <Setter TargetName="PressedState" Property="UIElement.Opacity" Value="1" />
+                        </Trigger>
+                        <Trigger Property="UIElement.IsFocused" Value="True">
+                            <Setter TargetName="FocusState" Property="UIElement.Opacity" Value="1" />
+                        </Trigger>
+                        <Trigger Property="UIElement.IsEnabled" Value="False">
+                            <Setter TargetName="Root" Property="UIElement.Opacity" Value="0.35" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

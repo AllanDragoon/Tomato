@@ -1,0 +1,398 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{EBD0B4A0-ECD0-415A-84A1-3FBC6E4475CE}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>LS.MapClean.Addin</RootNamespace>
+    <AssemblyName>LS.MapClean.Addin</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+    <SccProjectName>Perforce Project</SccProjectName>
+    <SccLocalPath>.</SccLocalPath>
+    <SccAuxPath>
+    </SccAuxPath>
+    <SccProvider>MSSCCI:Perforce SCM</SccProvider>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x86\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+    <OutputPath>bin\x86\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="AcDbMgd">
+      <HintPath>..\..\3rdParty\Autodesk\ObjectARX2012\inc\AcDbMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="AcMgd">
+      <HintPath>..\..\3rdParty\Autodesk\ObjectARX2012\inc\AcMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="QuickGraph, Version=3.6.61114.0, Culture=neutral, PublicKeyToken=f3fb40175eec2af3, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\3rdParty\QuickGraph\lib\net4\QuickGraph.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="WindowsFormsIntegration" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Algorithms\AlgorithmWithDatabase.cs" />
+    <Compile Include="Algorithms\AlgorithmWithEditor.cs" />
+    <Compile Include="Algorithms\ClusteredNodesSnaper.cs" />
+    <Compile Include="Algorithms\Curve2dBspBuilder.cs" />
+    <Compile Include="Algorithms\Curve2dBspTree.cs" />
+    <Compile Include="Algorithms\CurveVertexKdTree.cs" />
+    <Compile Include="Algorithms\MissingVertexSearcher.cs" />
+    <Compile Include="Algorithms\PolygonHoleSearcher.cs" />
+    <Compile Include="Algorithms\PolygonIncludeSearcher.cs" />
+    <Compile Include="Algorithms\PolygonIntersectSearcher.cs" />
+    <Compile Include="Algorithms\MinimalLoopSearcher.cs" />
+    <Compile Include="Algorithms\PolygonGapSearcher.cs" />
+    <Compile Include="Algorithms\SelfIntersectSearcher.cs" />
+    <Compile Include="Algorithms\ShortLineEraser.cs" />
+    <Compile Include="Algorithms\ZeroLengthEraser.cs" />
+    <Compile Include="Framework\DialogRegister.cs" />
+    <Compile Include="Framework\DialogService.cs" />
+    <Compile Include="Framework\WindowWrapper.cs" />
+    <Compile Include="Main\DocumentEventHandlers.cs" />
+    <Compile Include="Algorithms\BreakCrossingObjects.cs" />
+    <Compile Include="Main\AddinApplication.cs" />
+    <Compile Include="Main\CommandEntryPoints.cs" />
+    <Compile Include="Algorithms\ApparentIntersectionFixer.cs" />
+    <Compile Include="Algorithms\CurveIntersectUtils.cs" />
+    <Compile Include="Algorithms\CurveGraphBuilder.cs" />
+    <Compile Include="Algorithms\DanglingEraser.cs" />
+    <Compile Include="Algorithms\DuplicateEntityEraser.cs" />
+    <Compile Include="MapClean\ActionAgent.cs" />
+    <Compile Include="MapClean\Actions2\FindDanglingAction.cs" />
+    <Compile Include="MapClean\Actions2\MissingVertexInPolygonAction.cs" />
+    <Compile Include="MapClean\Actions2\OverlapPolygonAction.cs" />
+    <Compile Include="MapClean\Actions2\SelfIntersectionAction.cs" />
+    <Compile Include="MapClean\Actions\AnnotationOverlapAction.cs" />
+    <Compile Include="MapClean\Actions\AntiClockwisePolygonAction.cs" />
+    <Compile Include="MapClean\Actions\ApparentIntersectionAction.cs" />
+    <Compile Include="MapClean\Actions\BreakCrossingObjectsAction.cs" />
+    <Compile Include="MapClean\Actions\DanglingObjectsAction.cs" />
+    <Compile Include="MapClean\Actions\DissolvePseduoNodesAction.cs" />
+    <Compile Include="MapClean\Actions\DuplicateEntitiesAction.cs" />
+    <Compile Include="MapClean\Actions\DuplicateVertexPlineAction.cs" />
+    <Compile Include="MapClean\Actions\ExtendUndershootsAction.cs" />
+    <Compile Include="MapClean\Actions\IntersectPolygonAction.cs" />
+    <Compile Include="MapClean\Actions\MapCleanActionBase.cs" />
+    <Compile Include="MapClean\Actions\NoneZeroElevationAction.cs" />
+    <Compile Include="MapClean\Actions\PolygonHoleAction.cs" />
+    <Compile Include="MapClean\Actions\ResolveShortLinesAction.cs" />
+    <Compile Include="MapClean\Actions\SelfIntersectionAction.cs" />
+    <Compile Include="MapClean\Actions\SmallPolygonAction.cs" />
+    <Compile Include="MapClean\Actions\SmallPolygonGapAction.cs" />
+    <Compile Include="MapClean\Actions\SnapClusteredNodesAction.cs" />
+    <Compile Include="MapClean\Actions\UnclosedPolygonAction.cs" />
+    <Compile Include="MapClean\Actions\ZeroAreaLoopAction.cs" />
+    <Compile Include="MapClean\Actions\ZeroLengthObjectsAction.cs" />
+    <Compile Include="MapClean\ActionType.cs" />
+    <Compile Include="MapClean\CheckResult.cs" />
+    <Compile Include="MapClean\CheckResultGroup.cs" />
+    <Compile Include="MapClean\CheckResultGroupEventArgs.cs" />
+    <Compile Include="MapClean\MapCleanService.cs" />
+    <Compile Include="MapClean\TransientGraphicsMgr.cs" />
+    <Compile Include="Palettes\ActionSequencePaletteSet.cs" />
+    <Compile Include="Settings\ErrorMarkSettings.cs" />
+    <Compile Include="Algorithms\IntersectionInfo.cs" />
+    <Compile Include="Algorithms\PseudoNodesDissolver.cs" />
+    <Compile Include="Algorithms\DanglingVertexSearcher.cs" />
+    <Compile Include="Algorithms\ExtendUnderShoots.cs" />
+    <Compile Include="Algorithms\AlgorithmBase.cs" />
+    <Compile Include="MapClean\Status.cs" />
+    <Compile Include="Palettes\AllPaletteSets.cs" />
+    <Compile Include="Palettes\MapCleanPaletteSet.cs" />
+    <Compile Include="Palettes\PaletteSetBase.cs" />
+    <Compile Include="Palettes\PaletteSetType.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Settings\MapCleanSetting.cs" />
+    <Compile Include="SpreadPoints\SpreadPoint.cs" />
+    <Compile Include="SpreadPoints\SpreadPointCommands.cs" />
+    <Compile Include="SpreadPoints\SpreadPointSettings.cs" />
+    <Compile Include="SpreadPoints\SpreadPointUtils.cs" />
+    <Compile Include="SpreadPoints\ViewModel\SpreadPointSettingsViewModel.cs" />
+    <Compile Include="SpreadPoints\View\SpreadPointSettingsDlg.xaml.cs">
+      <DependentUpon>SpreadPointSettingsDlg.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Utils\AcadPromptUtil.cs" />
+    <Compile Include="Algorithms\CurveUtils.cs" />
+    <Compile Include="Utils\ComputerGraphics.cs" />
+    <Compile Include="Utils\EditorUtils.cs" />
+    <Compile Include="Utils\GeometryUtils.cs" />
+    <Compile Include="Utils\LayerUtils.cs" />
+    <Compile Include="Utils\MapScaleUtils.cs" />
+    <Compile Include="Utils\MathUtils.cs" />
+    <Compile Include="Utils\SelectionFilterUtils.cs" />
+    <Compile Include="Utils\SafeToleranceOverride.cs" />
+    <Compile Include="Utils\SerializableDictionary.cs" />
+    <Compile Include="Utils\SimpleLongOperationManager.cs" />
+    <Compile Include="Utils\WaitCursorSwitcher.cs" />
+    <Compile Include="Utils\WinFormsUtils.cs" />
+    <Compile Include="Utils\XDataUtils.cs" />
+    <Compile Include="ViewModel\ActionSelectViewModel.cs" />
+    <Compile Include="ViewModel\ActionSequenceViewModel.cs" />
+    <Compile Include="ViewModel\ActionsSettingViewModel.cs" />
+    <Compile Include="ViewModel\Base\BrowserNodeViewModel.cs" />
+    <Compile Include="ViewModel\Base\CheckableObservableCollection.cs" />
+    <Compile Include="ViewModel\Base\CheckWrapper.cs" />
+    <Compile Include="ViewModel\Base\ContextMenuItemCollection.cs" />
+    <Compile Include="ViewModel\Base\ContextMenuViewModel.cs" />
+    <Compile Include="ViewModel\Base\RelayCommand.cs" />
+    <Compile Include="ViewModel\Base\TreeNode.cs" />
+    <Compile Include="ViewModel\EntitySelectViewModel.cs" />
+    <Compile Include="ViewModel\Events\BrowserEvents.cs" />
+    <Compile Include="ViewModel\Events\BrowserEventsDispatcher.cs" />
+    <Compile Include="ViewModel\Events\CoreEvents.cs" />
+    <Compile Include="ViewModel\Extensions\ItemsControlExtensions.cs" />
+    <Compile Include="ViewModel\Extensions\VisualTreeExtensions.cs" />
+    <Compile Include="ViewModel\Extensions\VisualUtils.cs" />
+    <Compile Include="ViewModel\LayerSelectorViewModel.cs" />
+    <Compile Include="ViewModel\LayersSelectViewModel.cs" />
+    <Compile Include="ViewModel\MapCleanPanelViewModel.cs" />
+    <Compile Include="ViewModel\Messaging\Notifications.cs" />
+    <Compile Include="View\ActionSelectView.xaml.cs">
+      <DependentUpon>ActionSelectView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\ActionSequenceView.xaml.cs">
+      <DependentUpon>ActionSequenceView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Converters\BooleanToCollapseConverter.cs" />
+    <Compile Include="View\Converters\BooleanToVisibilityConverter.cs" />
+    <Compile Include="View\Converters\FlipBoolConverter.cs" />
+    <Compile Include="View\Converters\TreeItemIndentConverter.cs" />
+    <Compile Include="View\Converters\ErrorMarkColorConverter.cs" />
+    <Compile Include="View\Converters\ErrorMarkShapeConverter.cs" />
+    <Compile Include="View\CheckListBox.cs" />
+    <Compile Include="ViewModel\CheckResultGroupViewModel.cs" />
+    <Compile Include="ViewModel\CheckResultNodeViewModel.cs" />
+    <Compile Include="ViewModel\CheckResultsViewModel.cs" />
+    <Compile Include="ViewModel\ErrorMarkSettingsViewModel.cs" />
+    <Compile Include="ViewModel\MapCleanViewModel.cs" />
+    <Compile Include="View\ActionsSettingDialog.xaml.cs">
+      <DependentUpon>ActionsSettingDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\CheckResultsView.xaml.cs">
+      <DependentUpon>CheckResultsView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\EntitySelectView.xaml.cs">
+      <DependentUpon>EntitySelectView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\LayersSelectDialog.xaml.cs">
+      <DependentUpon>LayersSelectDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\LayersSelector.xaml.cs">
+      <DependentUpon>LayersSelector.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\MapCleanPanelView.xaml.cs">
+      <DependentUpon>MapCleanPanelView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\UserGuideView.xaml.cs">
+      <DependentUpon>UserGuideView.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="SpreadPoints\View\SpreadPointSettingsDlg.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\ActionSelectView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\ActionSequenceView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\ActionsSettingDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\ButtonStyle.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\CheckBoxStyle.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\ToolbarButtonStyle.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="View\BrowserResources.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\BrowserTreeTemplate.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\CheckResultsView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\EntitySelectView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\ErrorMarkShapes.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\LayersSelectDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\LayersSelector.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\MapCleanPanelView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\UserGuideView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Framework\GalaSoft.MvvmLight %28NET4%29\GalaSoft.MvvmLight %28NET4%29.csproj">
+      <Project>{36a3299e-5bc9-46d1-8a8f-9d85e3b58529}</Project>
+      <Name>GalaSoft.MvvmLight %28NET4%29</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\TopologyTools\TopologyTools.csproj">
+      <Project>{c7ff86be-c7c2-4b67-886b-4254c7b97150}</Project>
+      <Name>TopologyTools</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\close.png" />
+    <Resource Include="Images\examine.png" />
+    <Resource Include="Images\wrench.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\settings.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\select_entity.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\layers.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\recheck.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\forward.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\eraser.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\apparent_intersection.png" />
+    <Resource Include="Images\break_crossing.png" />
+    <Resource Include="Images\duplicate_entity.png" />
+    <Resource Include="Images\erase_dangling.png" />
+    <Resource Include="Images\erase_short.png" />
+    <Resource Include="Images\extend_undershoot.png" />
+    <Resource Include="Images\snap_cluster.png" />
+    <Resource Include="Images\zero_length.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\tools.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\zero_area.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\intersect_polygon.png" />
+    <Resource Include="Images\small_area.png" />
+    <Resource Include="Images\unclosed_polygon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\small_gap.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\self_intersect.png" />
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>PowerShell -File "$(ProjectDir)MC_PostBuild.ps1" $(ProjectDir) $(TargetDir) $(PlatformName) $(ConfigurationName)</PostBuildEvent>
+  </PropertyGroup>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

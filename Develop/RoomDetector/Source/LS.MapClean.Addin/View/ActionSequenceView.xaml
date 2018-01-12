@@ -1,0 +1,51 @@
+﻿<UserControl x:Class="LS.MapClean.Addin.View.ActionSequenceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:convs="clr-namespace:LS.MapClean.Addin.View.Converters"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="300">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ToolbarButtonStyle.xaml"/>
+                <ResourceDictionary Source="CheckBoxStyle.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <convs:BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+            <DataTemplate x:Key="ActionItemTemplate">
+                <StackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource ToolbarButtonStyle}" 
+                            Command="{Binding ActionCommand}" 
+                            IsEnabled="{Binding IsEnabled}"
+                            ToolTip="点击开始检查拓扑错误">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="{Binding ImageSource}" Height="32" Width="32" Margin="2,0"/>
+                            <TextBlock FontSize="12" Text="{Binding Name}" Width="100" Margin="2" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <CheckBox Margin="2,4,2,2" VerticalAlignment="Center"
+                              Style="{StaticResource CheckBoxDxStyle}"
+                              IsChecked="{Binding IsExecuted}" 
+                              IsEnabled="{Binding IsEnabled}"
+                              ToolTip="直接勾选可以进行下一步检查"
+                              Visibility="{Binding IsExecuted, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                </StackPanel>
+            </DataTemplate>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid>
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" 
+                      HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl Margin="2"
+                      ItemsSource="{Binding Items}"
+                      ItemTemplate="{StaticResource ActionItemTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

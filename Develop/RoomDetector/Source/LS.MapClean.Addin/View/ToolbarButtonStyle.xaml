@@ -1,0 +1,60 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="NormalBackground" Color="Transparent"/>
+    <LinearGradientBrush x:Key="HoverBackground" EndPoint="0,1">
+        <LinearGradientBrush.GradientStops>
+            <GradientStop Color="#FFD1EBFA" Offset="0"/>
+            <GradientStop Color="#FFC6E8F7" Offset="1"/>
+        </LinearGradientBrush.GradientStops>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="PressedBackground" EndPoint="0,1">
+        <LinearGradientBrush.GradientStops>
+            <GradientStop Color="#FFC3DCF4" Offset="0"/>
+            <GradientStop Color="#FFAED1F1" Offset="1"/>
+        </LinearGradientBrush.GradientStops>
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="NormalBorderBrush" Color="Transparent"/>
+    <SolidColorBrush x:Key="HoverBorderBrush" Color="#FF0261BF"/>
+    <SolidColorBrush x:Key="PressedBorderBrush" Color="#FF0160BF"/>
+
+    <ControlTemplate x:Key="ToolbarButtonTemplate" TargetType="{x:Type Button}">
+        <Border Name="Part_Border"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                SnapsToDevicePixels="True">
+            <ContentPresenter Margin="{TemplateBinding Padding}"/>
+        </Border>
+
+        <ControlTemplate.Triggers>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True"/>
+                    <Condition Property="IsEnabled" Value="True"/>
+                </MultiTrigger.Conditions>
+                <Setter TargetName="Part_Border" Property="Background" Value="{StaticResource HoverBackground}"/>
+                <Setter TargetName="Part_Border" Property="BorderBrush" Value="{StaticResource HoverBorderBrush}"/>
+            </MultiTrigger>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsPressed" Value="True"/>
+                    <Condition Property="IsEnabled" Value="True"/>
+                </MultiTrigger.Conditions>
+                <Setter TargetName="Part_Border" Property="Background" Value="{StaticResource PressedBackground}"/>
+                <Setter TargetName="Part_Border" Property="BorderBrush" Value="{StaticResource PressedBorderBrush}"/>
+            </MultiTrigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="ToolbarButtonStyle" TargetType="{x:Type Button}">
+        <Setter Property="BorderBrush" Value="{StaticResource NormalBorderBrush}" />
+        <Setter Property="Background" Value="{StaticResource NormalBackground}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="IsTabStop" Value="True" />
+        <Setter Property="Template" Value="{StaticResource ToolbarButtonTemplate}" />
+        <Setter Property="Padding" Value="2"/>
+    </Style>
+</ResourceDictionary>

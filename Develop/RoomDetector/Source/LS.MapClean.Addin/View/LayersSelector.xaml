@@ -1,0 +1,65 @@
+﻿<Window x:Class="LS.MapClean.Addin.View.LayersSelectorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="选择图层" Height="242.612" Width="313.06"
+        xmlns:local="clr-namespace:LS.MapClean.Addin.View" ResizeMode="NoResize" WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <DataTemplate x:Key="stuTmp">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Name}"/>
+            </StackPanel>
+        </DataTemplate>
+        <LinearGradientBrush x:Key="selectedItemBrush" EndPoint="0.5,1" StartPoint="0.5,0">
+            <GradientStop Color="#FF6259C2" Offset="0"/>
+            <GradientStop Color="#FF1B146A" Offset="1"/>
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="hoverBrush" Color="#59A8A9F1"/>
+        <SolidColorBrush x:Key="selectedForeBrush" Color="White" />
+        <SolidColorBrush x:Key="selectedTgbtnFore" Color="#FFFBFFFC"/>
+        <Style TargetType="{x:Type local:CheckableListBoxItem}">
+            <Setter Property="Padding" Value="14,2,0,2"/>
+            <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type local:CheckableListBoxItem}">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <Grid Margin="2.1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter Grid.Column="1" Margin="{TemplateBinding Padding}" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" ContentTemplateSelector="{TemplateBinding ContentTemplateSelector}" HorizontalAlignment="{Binding HorizontalContentAlignment, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ItemsControl}}}" VerticalAlignment="{Binding VerticalContentAlignment, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ItemsControl}}}"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="ListBoxItem.IsSelected" Value="True">
+                                <Setter Property="Background" TargetName="bd"  Value="{StaticResource selectedItemBrush}" />
+                                <Setter Property="Control.Foreground" Value="{StaticResource selectedForeBrush}"/>
+                            </Trigger>
+                            <MultiTrigger >
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="UIElement.IsMouseOver" Value="True"/>
+                                    <Condition Property="ListBoxItem.IsSelected" Value="False"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource hoverBrush}"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="auto" MinHeight="175"/>
+            <RowDefinition Height="auto" MinHeight="40"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0" Margin="0,0,0,28">
+            <local:CheckListBox x:Name="lb" SelectionMode="Multiple" ItemTemplate="{StaticResource stuTmp}" Margin="0,0,0,-23"/>
+        </Grid>
+        <Grid Grid.Row="1" Margin="0,0,0,28">
+            <Button Content="选择" HorizontalAlignment="Left" Margin="135,10,0,0" VerticalAlignment="Top" Width="75" Height="22" IsDefault="True" Click="SelectionButtonClick"/>
+            <Button Content="取消" HorizontalAlignment="Left" Margin="222,10,0,0" VerticalAlignment="Top" Width="75" Height="22" IsCancel="True"/>
+        </Grid>
+    </Grid>
+</Window>

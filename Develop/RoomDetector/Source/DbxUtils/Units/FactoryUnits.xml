@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FactoryUnits>
+  <!--
+    UnitGroup type attribute values represent those in the UnitsType enum.
+    Unit type attribute values represent those in the corresponding enum: xxxUnit.
+    "Res" attribute values identify the id of the string in the Resources collection.
+    "Default" attribute values identify the internal unit for that type.
+  -->
+  <UnitGroup type="CostRate" default="PerMinute">
+    <Unit type="PerDay" res="Units_CostRate_PerDay_Long"  shortRes="Units_CostRate_PerDay_Short"/>
+    <Unit type="PerHour" res="Units_CostRate_PerHour_Long" shortRes="Units_CostRate_PerHour_Short"/>
+    <Unit type="PerMinute" res="Units_CostRate_PerMinute_Long" shortRes="Units_CostRate_PerMinute_Short"/>
+    <Unit type="PerSecond" res="Units_CostRate_PerSecond_Long" shortRes="Units_CostRate_PerSecond_Short"/>
+  </UnitGroup>
+  <UnitGroup type="EnergyConsumptionRate" default="kW">
+    <Unit type="kW" res="Units_PowerConsumptionRate_kW_Short"/>
+    <Unit type="JoulePerHour" res="Units_PowerConsumptionRate_JoulePerHour_Short"/>
+    <Unit type="JoulePerMin" res="Units_PowerConsumptionRate_JoulePerMinute_Short"/>
+    <Unit type="JoulePerSecond" res="Units_PowerConsumptionRate_JoulePerSecond_Short"/>
+  </UnitGroup>
+  <UnitGroup type="Time" default="Minute">
+    <Unit type="Minute" res="Units_Minute_Short"/>
+    <Unit type="Hour" res="Units_Hour_Short"/>
+    <Unit type="Day" res="Units_Day_Long"/>
+    <Unit type="Second" res="Units_Second_Short"/>
+  </UnitGroup>
+  <UnitGroup type="Speed" default="FeetPerMin">
+    <Unit type="FeetPerHour" res="Units_FeetPerHour_Short"/>
+    <Unit type="FeetPerMin" res="Units_FeetPerMin_Short"/>
+    <Unit type="FeetPerSecond" res="Units_FeetPerSecond_Short"/>
+    <Unit type="InchPerHour" res="Units_InchPerHour_Short"/>
+    <Unit type="InchPerMin" res="Units_InchPerMin_Short"/>
+    <Unit type="InchPerSecond" res="Units_InchPerSecond_Short"/>
+    <Unit type="CentimeterPerHour" res="Units_CentimeterPerHour_Short"/>
+    <Unit type="CentimeterPerMin" res="Units_CentimeterPerMin_Short"/>
+    <Unit type="CentimeterPerSecond" res="Units_CentimeterPerSecond_Short"/>
+    <Unit type="MeterPerHour" res="Units_MeterPerHour_Short"/>
+    <Unit type="MeterPerMin" res="Units_MeterPerMin_Short"/>
+    <Unit type="MeterPerSecond" res="Units_MeterPerSecond_Short"/>
+  </UnitGroup>
+  <UnitGroup type="Length" default="Feet">
+    <Unit type="Decimeters" res="Units_Decimeters_Long" shortRes="Units_Decimeters_Short"/>
+    <Unit type="Millimeters" res="Units_Millimeters_Long" shortRes="Units_Millimeters_Short"/>
+    <Unit type="Centimeters" res="Units_Centimeters_Long" shortRes="Units_Centimeters_Short"/>
+    <Unit type="Meters" res="Units_Meters_Long" shortRes="Units_Meters_Short"/>
+    <Unit type="Kilometers" res="Units_Kilometers_Long" shortRes="Units_Kilometers_Short"/>
+    <Unit type="Inches" res="Units_Inches_Long" shortRes="Units_Inches_Short"/>
+    <Unit type="Feet" res="Units_Feet_Long" shortRes="Units_Feet_Short"/>
+    <Unit type="Yards" res="Units_Yards_Long" shortRes="Units_Yards_Short"/>
+    <Unit type="Miles" res="Units_Miles_Long" shortRes="Units_Miles_Short"/>
+    <Unit type="Micron" res="Units_Micron_Long" shortRes="Units_Micron_Short"/>
+  </UnitGroup>
+  <UnitGroup type="Angularity" default="Radians">
+    <Unit type="Radians" res="Units_Radians_Long" shortRes="Units_Radians_Short"/>
+    <Unit type="Degree" res="Units_Degree_Long" shortRes="Units_Degree_Short"/>
+    <Unit type="Grad" res="Units_Grad_Long" shortRes="Units_Grad_Short"/>
+    <Unit type="Steradian" res="Units_Steradian_Long" shortRes="Units_Steradian_Short"/>
+  </UnitGroup>
+  <UnitGroup type="Unitless" default="Unitless">
+    <Unit type="Unitless" res="Units_Unitless_Long" shortRes="Units_Unitless_Short"/>
+  </UnitGroup>
+  <UnitGroup type="Volume" default="CubicInches">
+    <Unit type="CubicInches" res="Units_CuIn_Long" shortRes="Units_CuIn_Short"/>
+    <Unit type="CubicFeet" res="Units_CuFt_Long" shortRes="Units_CuFt_Short"/>
+    <Unit type="CubicYards" res="Units_CuYd_Long" shortRes="Units_CuYd_Short"/>
+    <Unit type="CubicMeters" res="Units_CuMe_Long" shortRes="Units_CuMe_Short"/>   
+    <Unit type="CubicDecimeters" res="Units_CuDe_Long" shortRes="Units_CuDe_Short"/>
+    <Unit type="CubicCentimeters" res="Units_CuCe_Long" shortRes="Units_CuCe_Short"/>
+    <Unit type="CubicMillimeters" res="Units_CuMi_Long" shortRes="Units_CuMi_Short"/>    
+  </UnitGroup>  
+</FactoryUnits>

@@ -1,0 +1,42 @@
+﻿<UserControl x:Class="LS.MapClean.Addin.View.UserGuideView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="400">
+    <Grid>
+        <StackPanel>
+            <TextBlock Text="使用说明：" Margin="2,4" FontSize="14" FontWeight="Bold"/>
+            <TextBlock Margin="4" FontSize="14" TextWrapping="WrapWithOverflow">
+                <Span>1. 第一次清理时，请在清理动作中勾选</Span>
+                <Span FontWeight="Bold">打断所有交叉对象</Span>
+                <Span>，点击</Span>
+                <Span FontWeight="Bold">开始检查</Span>
+                <Span>按钮后，图形中所有交叉对象会被打断。如果不勾选，某些拓扑错误会检测不到。</Span>
+            </TextBlock>
+            
+            <TextBlock Margin="4" FontSize="14" TextWrapping="WrapWithOverflow">
+                <Span>2. 在检查结果面板中可以</Span>
+                <Span FontWeight="Bold">双击</Span>
+                <Span>或者右键菜单去</Span>
+                <Span FontWeight="Bold">查看、修复或者忽略</Span>
+                <Span>每一个拓扑错误。如果某一拓扑错误被设为忽略，则此错误不会被修复。</Span>
+            </TextBlock>
+
+            <TextBlock Margin="4" FontSize="14" TextWrapping="WrapWithOverflow">
+                <Span>3. 在检查结果面板中可以点击</Span>
+                <Span FontWeight="Bold">重新检查</Span>
+                <Span>按钮，可以重新检查当前图形中的拓扑错误。</Span>
+            </TextBlock>
+            
+            <TextBlock Margin="4" FontSize="14" TextWrapping="WrapWithOverflow">
+                <Span>4. 在检查结果面板中点击</Span>
+                <Span FontWeight="Bold">继续清理</Span>
+                <Span>，可以在弹出对话框中继续选择清理动作。</Span>
+            </TextBlock>
+            
+            
+        </StackPanel>
+    </Grid>
+</UserControl>

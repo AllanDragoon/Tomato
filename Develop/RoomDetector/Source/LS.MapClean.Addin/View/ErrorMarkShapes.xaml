@@ -1,0 +1,9 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <PathGeometry x:Key="CircleShape" Figures="M11.5,6C11.5,9.03756612406936,9.03756612406936,11.5,6,11.5C2.96243387593064,11.5,0.5,9.03756612406936,0.5,6C0.5,2.96243387593064,2.96243387593064,0.5,6,0.5C9.03756612406936,0.5,11.5,2.96243387593064,11.5,6z"/>
+    <PathGeometry x:Key="TriangleShape" Figures="M6,0.5L11.499999995477,11.5L0.500000004523002,11.5z"/>
+    <PathGeometry x:Key="DiamondShape" Figures="M7,0.5L13.5,6L7,11.5L0.5,6z"/>
+    <PathGeometry x:Key="SquareShape" Figures="M0.5,0.5L11.5,0.5L11.5,11.5L0.5,11.5z"/>
+    <PathGeometry x:Key="CrossShape" Figures="M6.5,0.5 L7.5,0.5 7.5,6.5 13.5,6.5 13.5,7.5 7.5,7.5 7.5,13.5 6.5,13.5 6.5,7.5 0.5,7.5 0.5,6.5 6.5,6.5 z"/>
+</ResourceDictionary>

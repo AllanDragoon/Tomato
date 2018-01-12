@@ -1,0 +1,57 @@
+﻿<UserControl x:Class="LS.MapClean.Addin.View.ActionSelectView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:convs="clr-namespace:LS.MapClean.Addin.View.Converters"
+             Background="Transparent"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="400">
+    <UserControl.Resources>
+        <convs:BooleanToCollapseConverter x:Key="BooleanToCollapseConverter"/>
+        <convs:FlipBoolConverter x:Key="FlipBoolConverter"/>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <CheckBox Grid.Row="0" Margin="6,4,4,4" Content="打断所有交叉对象" IsChecked="{Binding BreakCrossingObjects}"/>
+            <GroupBox Grid.Row="1" Margin="4" Header="选择清理方法">
+                <ListBox 
+                     ItemsSource="{Binding Items}" SelectionMode="Single"
+                     SelectedItem="{Binding SelectedItem}" 
+                     VerticalAlignment="Stretch">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <CheckBox Name="check" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="3" VerticalAlignment="Center" />
+                                <ContentPresenter Content="{Binding Value.Name}" Margin="1"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </GroupBox>
+        </Grid>
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="auto"/>
+                <RowDefinition Height="auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="清理参数：" Margin="3" FontSize="14" FontWeight="Bold"/>
+            <StackPanel Grid.Row="1">
+                <GroupBox Header="容差" Margin="3" Padding="3"
+                          Visibility="{Binding NeedTolerance, Converter={StaticResource BooleanToCollapseConverter}}">
+                    <TextBox Margin="3" Text="{Binding Tolerance, UpdateSourceTrigger=LostFocus}"/>
+                </GroupBox>
+                <!--<CheckBox Margin="6,3" Content="线性对象"/>
+                <CheckBox Margin="6,3"  Content="点"/>-->
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>
