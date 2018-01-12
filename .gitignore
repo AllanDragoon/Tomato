@@ -1,3 +1,13 @@
 # Output directories
-Develop/Framework/GalaSoft.MvvmLight (NET4)/bin
-Develop/Framework/GalaSoft.MvvmLight (NET4)/obj
+ Develop/Framework/GalaSoft.MvvmLight.Extras (NET4)/bin/
+ Develop/Framework/GalaSoft.MvvmLight.Extras (NET4)/obj/
+ Develop/RoomDetector/3rdParty/
+ Develop/RoomDetector/Source/DbxUtils/bin/
+ Develop/RoomDetector/Source/DbxUtils/obj/
+ Develop/RoomDetector/Source/LS.MapClean.Addin/bin/
+ Develop/RoomDetector/Source/LS.MapClean.Addin/obj/
+ Develop/RoomDetector/Source/Solutions/LS.MapClean.v12.suo
+ Develop/RoomDetector/Source/Solutions/packages/
+ Develop/RoomDetector/Source/TopologyTools/bin/
+ Develop/RoomDetector/Source/TopologyTools/obj/
+
