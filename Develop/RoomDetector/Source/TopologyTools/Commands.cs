@@ -71,9 +71,9 @@ namespace TopologyTools
         public static void Polygonizer()
         {
             //¹ýÂËÑ¡Ôñpolyline
-            var selected = GetSelectPolyline(false);
-            if (selected.Count > 0)
-                NtsUtils.PolygonizeLineStrings(selected[0].Database, selected);
+            //var selected = GetSelectPolyline(false);
+            //if (selected.Count > 0)
+            //    NtsUtils.PolygonizeLineStrings(selected[0].Database, selected);
         }
 
         [CommandMethod("XGX")]

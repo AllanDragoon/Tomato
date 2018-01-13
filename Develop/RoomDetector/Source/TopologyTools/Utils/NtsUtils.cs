@@ -401,10 +401,11 @@ namespace TopologyTools.Utils
             }
         }
 
-        public static void PolygonizeLineStrings(Database database, ObjectIdCollection polylineIdCollection,
+        public static List<ObjectId> PolygonizeLineStrings(Database database, IEnumerable<ObjectId> polylineIdCollection,
             String outLayerName = "0",
             AcadColor color = null, double precision = 0.00001)
         {
+            var result = new List<ObjectId>();
             using (var tr = database.TransactionManager.StartTransaction())
             {
                 // 读入多边形数据
@@ -514,44 +515,46 @@ namespace TopologyTools.Utils
                                 polyline.Color = color;
                             polyline.Layer = outLayerName;
                             // 输出到CAD
-                            blockTableRecord.AppendEntity(polyline);
+                            var polylineId = blockTableRecord.AppendEntity(polyline);
+                            result.Add(polylineId);
                             tr.AddNewlyCreatedDBObject(polyline, true);
                         }
                     }
                 }
 
-                // 悬挂线
-                foreach (ILineString lineString in dangles)
-                {
-                    if (lineString != null)
-                    {
-                        var polyline = writer.WritePolyline(lineString);
-                        if (color != null)
-                            polyline.Color = color;
-                        polyline.Layer = outLayerName;
-                        // 输出到CAD
-                        blockTableRecord.AppendEntity(polyline);
-                        tr.AddNewlyCreatedDBObject(polyline, true);
-                    }
-                }
+                //// 悬挂线
+                //foreach (ILineString lineString in dangles)
+                //{
+                //    if (lineString != null)
+                //    {
+                //        var polyline = writer.WritePolyline(lineString);
+                //        if (color != null)
+                //            polyline.Color = color;
+                //        polyline.Layer = outLayerName;
+                //        // 输出到CAD
+                //        blockTableRecord.AppendEntity(polyline);
+                //        tr.AddNewlyCreatedDBObject(polyline, true);
+                //    }
+                //}
 
-                // 裁剪线
-                foreach (ILineString lineString in cuts)
-                {
-                    if (lineString != null)
-                    {
-                        var polyline = writer.WritePolyline(lineString);
-                        if (color != null)
-                            polyline.Color = color;
-                        polyline.Layer = outLayerName;
-                        // 输出到CAD
-                        blockTableRecord.AppendEntity(polyline);
-                        tr.AddNewlyCreatedDBObject(polyline, true);
-                    }
-                }
+                //// 裁剪线
+                //foreach (ILineString lineString in cuts)
+                //{
+                //    if (lineString != null)
+                //    {
+                //        var polyline = writer.WritePolyline(lineString);
+                //        if (color != null)
+                //            polyline.Color = color;
+                //        polyline.Layer = outLayerName;
+                //        // 输出到CAD
+                //        blockTableRecord.AppendEntity(polyline);
+                //        tr.AddNewlyCreatedDBObject(polyline, true);
+                //    }
+                //}
 
                 tr.Commit();
             }
+            return result;
         }
 
         public static Point3d? GetCentroid(ObjectId polylineId)
