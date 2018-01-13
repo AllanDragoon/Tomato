@@ -9,6 +9,7 @@ using Autodesk.AutoCAD.Geometry;
 using LS.MapClean.Addin.Utils;
 using LS.MapClean.Addin.Algorithms;
 using NetTopologySuite.Geometries;
+using TopologyTools.Utils;
 
 namespace LS.MapClean.Addin.Main
 {
@@ -87,7 +88,41 @@ namespace LS.MapClean.Addin.Main
                     }
                 }
 
+                // 4. 排除0面积闭合线
+                doc.Editor.WriteMessage("\n排除零面积闭合线...\n");
+                var zeroAreaLoopIds = CurveUtils.GetZeroAreaLoop(checkIds, doc.Database);
+                foreach (var zeroAreaLoopId in zeroAreaLoopIds)
+                {
+                    checkIds.Remove(zeroAreaLoopId);
+                    duplicateIds.Add(zeroAreaLoopId);
+                }
+
+                // 5. 删除0长度对象
+                doc.Editor.WriteMessage("\n排除零长度对象...\n");
+                var zeroLengthEraser = new ZeroLengthEraser(doc.Editor);
+                zeroLengthEraser.Check(checkIds);
+                foreach (ObjectId zeroLengthId in zeroLengthEraser.ZerolengthObjectIdCollection)
+                {
+                    checkIds.Remove(zeroLengthId);
+                    duplicateIds.Add(zeroLengthId);
+                }
+
                 polygonIds = checkIds;
+
+                //// Test code
+                //using (var transaction = doc.Database.TransactionManager.StartTransaction())
+                //{
+                //    var color = Color.FromColorIndex(ColorMethod.ByAci, 3); // Green
+                //    ObjectId layerId = LayerUtils.AddNewLayer(doc.Database, "temp-poly", "Continuous", color);
+                //    foreach (var polygonId in polygonIds)
+                //    {
+                //        var entity = (Entity)transaction.GetObject(polygonId, OpenMode.ForWrite);
+                //        entity.Color = color;
+                //        entity.LayerId = layerId;
+                //    }
+                //    transaction.Commit();
+                //}
+                //return new List<Point2d>();
             }
 
             // 2. Make polygons.
@@ -101,21 +136,22 @@ namespace LS.MapClean.Addin.Main
                 using (var tolerance = new SafeToleranceOverride())
                 using (var waitCursor = new WaitCursorSwitcher())
                 {
-                    var polygons = MinimalLoopSearcher2.Search(polygonIds, doc);
-                    using (var transaction = doc.Database.TransactionManager.StartTransaction())
-                    {
-                        var modelspaceId = SymbolUtilityServices.GetBlockModelSpaceId(doc.Database);
-                        var modelspace = (BlockTableRecord)transaction.GetObject(modelspaceId, OpenMode.ForWrite);
-                        foreach (var polyline in polygons)
-                        {
-                            polyline.Color = color;
-                            polyline.LayerId = layerId;
-                            var id = modelspace.AppendEntity(polyline);
-                            resultIds.Add(id);
-                            transaction.AddNewlyCreatedDBObject(polyline, true);
-                        }
-                        transaction.Commit();
-                    }
+                    //var polygons = MinimalLoopSearcher2.Search(polygonIds, doc);
+                    //using (var transaction = doc.Database.TransactionManager.StartTransaction())
+                    //{
+                    //    var modelspaceId = SymbolUtilityServices.GetBlockModelSpaceId(doc.Database);
+                    //    var modelspace = (BlockTableRecord)transaction.GetObject(modelspaceId, OpenMode.ForWrite);
+                    //    foreach (var polyline in polygons)
+                    //    {
+                    //        polyline.Color = color;
+                    //        polyline.LayerId = layerId;
+                    //        var id = modelspace.AppendEntity(polyline);
+                    //        resultIds.Add(id);
+                    //        transaction.AddNewlyCreatedDBObject(polyline, true);
+                    //    }
+                    //    transaction.Commit();
+                    //}
+                    resultIds = NtsUtils.PolygonizeLineStrings(doc.Database, polygonIds, "temp-poly", color, 0.0001);
                 }
             }
 
@@ -180,7 +216,7 @@ namespace LS.MapClean.Addin.Main
                     largestPolyline.LayerId = layerId;
                     modelspace.AppendEntity(largestPolyline);
                     transaction.AddNewlyCreatedDBObject(largestPolyline, add: true);
-                    
+
                     transaction.Commit();
                 }
             }
