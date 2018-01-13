@@ -830,5 +830,14 @@ namespace LS.MapClean.Addin.Main
             var currentDoc = Application.DocumentManager.MdiActiveDocument;
             SpreadPointCommands.UpdateSpreadPoints(currentDoc);
         }
+
+        [CommandMethod(GroupName, "FXSB", CommandFlags.Modal)]
+        public static void RecognizeRoomAndWalls()
+        {
+            var currentDoc = Application.DocumentManager.MdiActiveDocument;
+            var editor = currentDoc.Editor;
+            editor.WriteMessage("\nLet's begin to recognize the walls and rooms!\n");
+            RoomWallRecognizer.Recognize();
+        }
     }
 }

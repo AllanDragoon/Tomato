@@ -127,6 +127,7 @@
     <Compile Include="Algorithms\CurveGraphBuilder.cs" />
     <Compile Include="Algorithms\DanglingEraser.cs" />
     <Compile Include="Algorithms\DuplicateEntityEraser.cs" />
+    <Compile Include="Main\RoomWallRecognizer.cs" />
     <Compile Include="MapClean\ActionAgent.cs" />
     <Compile Include="MapClean\Actions2\FindDanglingAction.cs" />
     <Compile Include="MapClean\Actions2\MissingVertexInPolygonAction.cs" />
