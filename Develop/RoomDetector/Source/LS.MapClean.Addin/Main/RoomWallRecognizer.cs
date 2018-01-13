@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Geometry;
 
 namespace LS.MapClean.Addin.Main
 {
@@ -60,9 +61,12 @@ namespace LS.MapClean.Addin.Main
             throw new NotImplementedException();
         }
 
-        private static /*TBD*/void SearchWalls(IEnumerable<Entity> entities)
+        private static void SearchWalls(IEnumerable<Line> entities)
         {
-            throw new NotImplementedException();
+            foreach (Line line in entities)
+            {
+                LineSegment3d lineSeg2 = WallRecognizer.getWallline(line, entities);  // Daniel: entities should be instead
+            }
         }
 
         private static IEnumerable<Entity> GetWallCenterLines( /*TBD*/)

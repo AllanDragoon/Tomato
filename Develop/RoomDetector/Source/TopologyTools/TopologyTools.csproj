@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>TopologyTools</RootNamespace>
     <AssemblyName>TopologyTools</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>
     </SccProjectName>
@@ -19,6 +19,7 @@
     </SccAuxPath>
     <SccProvider>
     </SccProvider>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -28,6 +29,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -36,19 +38,20 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="AcCoreMgd">
+      <HintPath>..\..\..\3rdParty\ObjectARX\inc\AcCoreMgd.dll</HintPath>
+    </Reference>
     <Reference Include="AcDbMgd">
-      <HintPath>..\..\3rdParty\Autodesk\ObjectARX2012\inc\AcDbMgd.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\..\3rdParty\ObjectARX\inc\AcDbMgd.dll</HintPath>
     </Reference>
     <Reference Include="AcMgd">
-      <HintPath>..\..\3rdParty\Autodesk\ObjectARX2012\inc\AcMgd.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\..\3rdParty\ObjectARX\inc\AcMgd.dll</HintPath>
     </Reference>
     <Reference Include="AcMPolygonMGD">
-      <HintPath>..\..\3rdParty\Autodesk\ObjectARX2012\inc\AcMPolygonMGD.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\..\3rdParty\ObjectARX\AcMPolygonMGD.dll</HintPath>
     </Reference>
     <Reference Include="GeoAPI">
       <HintPath>..\..\..\3rdParty\NetTopologySuite\GeoAPI.dll</HintPath>
@@ -114,13 +117,13 @@
     <Compile Include="Utils\ToleranceOverrule.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="GeometryExtensions\about.txt" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\DbxUtils\DbxUtils.csproj">
       <Project>{9d2acc5f-b5a7-4b00-9ef2-35086a6340d6}</Project>
       <Name>DbxUtils</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="GeometryExtensions\about.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
