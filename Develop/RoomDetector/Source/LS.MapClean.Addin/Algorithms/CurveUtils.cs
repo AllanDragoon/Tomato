@@ -26,6 +26,10 @@ namespace LS.MapClean.Addin.Algorithms
             var dbObj = transaction.GetObject(id, OpenMode.ForRead);
 
             var curve = dbObj as Curve;
+            // Xline will cause exception
+            if (curve is Xline)
+                return result;
+
             // Line, Polyline, Arc
             // TODO: Circle, Ellipse?
             if (curve != null) // Line
@@ -313,22 +317,51 @@ namespace LS.MapClean.Addin.Algorithms
             if (curve == null)
                 return new DBObjectCollection();
 
-            var sortedDoubles = SortBreakPointsByCurve(curve, splitPoints);
-            if (sortedDoubles.Count <= 0)
-                return new DBObjectCollection();
-
-            DBObjectCollection result = new DBObjectCollection();
+            var result = new DBObjectCollection();
             try
             {
-                result = curve.GetSplitCurves(sortedDoubles);
+                result = SplitCurveImpl(curve, splitPoints);
             }
             catch (Exception)
             {
-                foreach (double sortedDouble in sortedDoubles)
+                // Sometimes if the curve's coordinates are too large, invalidInput exception will be thrown
+                // So move it to origin point, and calculate, then move it back.
+                try
                 {
-                    System.Diagnostics.Trace.WriteLine(sortedDouble);
+                    using (var tempCurve = (Curve) curve.Clone())
+                    {
+                        var matrix = Matrix3d.Displacement(Point3d.Origin - tempCurve.StartPoint);
+                        tempCurve.TransformBy(matrix);
+                        var newSplitPoints = splitPoints.Select(it => it.TransformBy(matrix)).ToArray();
+                        result = SplitCurveImpl(tempCurve, newSplitPoints);
+                        var inverse = matrix.Inverse();
+                        foreach (Curve subCurve in result)
+                        {
+                            subCurve.TransformBy(inverse);
+                        }
+                    }
+                }
+                catch (Exception)
+                {
                 }
             }
+            return result;
+        }
+
+        /// <summary>
+        /// Split curve implementation - may throw exception.
+        /// </summary>
+        /// <param name="curve"></param>
+        /// <param name="splitPoints"></param>
+        /// <returns></returns>
+        private static DBObjectCollection SplitCurveImpl(Curve curve, Point3d[] splitPoints)
+        {
+            var result = new DBObjectCollection();
+            var sortedDoubles = SortBreakPointsByCurve(curve, splitPoints);
+            if (sortedDoubles.Count <= 0)
+                return result;
+
+            result = curve.GetSplitCurves(sortedDoubles);
             return result;
         }
 
@@ -390,7 +423,13 @@ namespace LS.MapClean.Addin.Algorithms
 
                     // If subcuve is same with curve, just continue.
                     var vertices = GetDistinctVertices(curve, transaction);
+                    // If curve is closed, add the first point.
+                    if(curve.Closed && vertices[0] != vertices[vertices.Count - 1])
+                        vertices.Add(vertices[0]);
+
                     var subVertices = GetDistinctVertices(subCurve, transaction);
+                    if(subCurve.Closed && subVertices[0] != subVertices[subVertices.Count - 1])
+                        subVertices.Add(subVertices[0]);
 
                     bool duplicate = true;
                     if (vertices.Count() != subVertices.Count())
@@ -436,14 +475,7 @@ namespace LS.MapClean.Addin.Algorithms
             var sortedDoubles = new DoubleCollection();
             foreach (Point3d point in splitPoints)
             {
-                double? param = null;
-                try
-                {
-                    param = GeometryUtils.GetPointParameter(curve, point);
-                }
-                catch
-                {
-                }
+                double? param = GeometryUtils.GetPointParameter(curve, point);
                 if (param == null)
                     continue;
 
@@ -558,7 +590,7 @@ namespace LS.MapClean.Addin.Algorithms
             return segments;
         }
 
-        public static IEnumerable<Point3d> GetDistinctVertices(ObjectId curveId)
+        public static List<Point3d> GetDistinctVertices(ObjectId curveId)
         {
             using (var transaction = curveId.Database.TransactionManager.StartTransaction())
             {
@@ -568,18 +600,18 @@ namespace LS.MapClean.Addin.Algorithms
             }
         }
 
-        public static IEnumerable<Point3d> GetDistinctVertices(ObjectId curveId, Transaction transaction)
+        public static List<Point3d> GetDistinctVertices(ObjectId curveId, Transaction transaction)
         {
             var curve = transaction.GetObject(curveId, OpenMode.ForRead) as Curve;
             if (curve == null)
-                return new Point3d[0];
+                return new List<Point3d>();
             var result = GetDistinctVertices(curve, transaction);
             // Dispose the curve.
             curve.Dispose();
             return result;
         }
 
-        public static IEnumerable<Point2d> GetDistinctVertices2D(ObjectId curveId)
+        public static List<Point2d> GetDistinctVertices2D(ObjectId curveId)
         {
             using (var transaction = curveId.Database.TransactionManager.StartTransaction())
             {
@@ -790,7 +822,8 @@ namespace LS.MapClean.Addin.Algorithms
             {
                 foreach (var objectId in curveIds)
                 {
-                    var newIds = CurveUtils.TrimCurveByPolygon(objectId, polygon, space, keepInside, mergeConnected, transaction);
+                    bool isInPolygon = false;
+                    var newIds = CurveUtils.TrimCurveByPolygon(objectId, polygon, space, keepInside, mergeConnected, transaction, out isInPolygon);
                     result.Add(objectId, newIds.ToArray());
                 }
             }
@@ -824,7 +857,8 @@ namespace LS.MapClean.Addin.Algorithms
                         try
                         {
                             // 裁剪构造线会失败，所以加try/catch
-                            var newIds = CurveUtils.TrimCurveByPolygon(objectId, polyline, modelspace, keepInside, mergeConnected, transaction);
+                            bool isInPolygon = false;
+                            var newIds = CurveUtils.TrimCurveByPolygon(objectId, polyline, modelspace, keepInside, mergeConnected, transaction, out isInPolygon);
                             result.Add(objectId, newIds.ToArray());
                         }
                         catch
@@ -849,8 +883,9 @@ namespace LS.MapClean.Addin.Algorithms
         /// <param name="transaction"></param>
         /// <returns>return the newly created entities.</returns>
         public static IEnumerable<ObjectId> TrimCurveByPolygon(ObjectId curveId, Polyline polygon, BlockTableRecord space,
-            bool keepInside, bool mergeConnected, Transaction transaction)
+            bool keepInside, bool mergeConnected, Transaction transaction, out bool isInPolygon, bool eraseOrigin = true)
         {
+            isInPolygon = false;
             var result = new List<ObjectId>();
             var curve = transaction.GetObject(curveId, OpenMode.ForRead) as Curve;
             if (curve == null)
@@ -868,7 +903,8 @@ namespace LS.MapClean.Addin.Algorithms
                 // Select any point of curve to check whether it's in or out of polygon
                 var anyPoint = new Point2d(curve.StartPoint.X, curve.EndPoint.Y);
                 bool isIn = ComputerGraphics.IsInPolygon(vertexArray, anyPoint, vertices.Count - 1);
-                if ((!isIn && keepInside) || (isIn && !keepInside))
+                isInPolygon = isIn;
+                if (((!isIn && keepInside) || (isIn && !keepInside)) && eraseOrigin)
                 {
                     // If it's out of polygon, just erase.
                     curve.UpgradeOpen();
@@ -941,7 +977,7 @@ namespace LS.MapClean.Addin.Algorithms
                 result.Add(objId);
             }
 
-            if (spliltCurves.Count > 0)
+            if (spliltCurves.Count > 0 && eraseOrigin)
             {
                 curve.UpgradeOpen();
                 curve.Erase();
@@ -1101,6 +1137,11 @@ namespace LS.MapClean.Addin.Algorithms
                 if (vertexId is ObjectId)
                 {
                     var id = (ObjectId)vertexId;
+                    // 二维多段线，如果顶点已经删除，但是二维多段线依然保留他们的信息，
+                    // 除非重新关闭dwg，然后再打开dwg。
+                    if (id.IsErased)
+                        continue;
+
                     if (id.IsValid)
                         vertex = transaction.GetObject((ObjectId)vertexId, OpenMode.ForRead) as Vertex2d;
                 }
@@ -1111,6 +1152,9 @@ namespace LS.MapClean.Addin.Algorithms
                     continue;
 
                 var point = vertex.Position;
+                // TEMP：发现有的二维多段线的Z值并不是0.0，但是无法找到原因，临时改成0.0
+                if(!point.Z.EqualsWithTolerance(0.0))
+                    point = new Point3d(point.X, point.Y, 0.0);
                 if (prevPoint == null || prevPoint.Value != point)
                 {
                     distinctVertices.Add(point);
@@ -1127,7 +1171,7 @@ namespace LS.MapClean.Addin.Algorithms
             return distinctVertices.Select(it => new Point2d(it.X, it.Y)).ToList();
         }
 
-        private static IEnumerable<Point3d> GetDistinctVertices(IEnumerable<Point3d> points)
+        public static List<Point3d> GetDistinctVertices(IEnumerable<Point3d> points)
         {
             var result = new List<Point3d>();
             Point3d? prevPoint = null;
@@ -1203,6 +1247,196 @@ namespace LS.MapClean.Addin.Algorithms
                 }
             }
             return results;
+        }
+
+        #region None-Zero Elevation
+        public static bool IsCurveNonZeroElevation(ObjectId objectId)
+        {
+            var result = false;
+            using (var tr = objectId.Database.TransactionManager.StartTransaction())
+            {
+                result = IsCurveNonZeroElevation(objectId, tr);
+                tr.Commit();
+            }
+
+            return result;
+        }
+
+        public static bool IsCurveNonZeroElevation(ObjectId objectId, Transaction transaction)
+        {
+            var result = false;
+            DBObject dbObject = transaction.GetObject(objectId, OpenMode.ForRead);
+
+            var polyline = dbObject as Polyline;
+            var polyline2d = dbObject as Polyline2d;
+            var line = dbObject as Line;
+            var text = dbObject as DBText;
+            var mtext = dbObject as MText;
+
+            if (polyline != null)
+            {
+                result = !polyline.Elevation.EqualsWithTolerance(0);
+
+            }
+            else if (polyline2d != null)
+            {
+                result = !polyline2d.Elevation.EqualsWithTolerance(0);
+            }
+            else if (line != null)
+            {
+                var startPoint = line.StartPoint;
+                var endPoint = line.EndPoint;
+                result = !startPoint.Z.EqualsWithTolerance(0.0) || !endPoint.Z.EqualsWithTolerance(0.0);
+            }
+            else if (text != null)
+            {
+                result = !text.Position.Z.EqualsWithTolerance(0.0) || !text.AlignmentPoint.Z.EqualsWithTolerance(0.0);
+            }
+            else if (mtext != null)
+            {
+                result = !mtext.Location.Z.EqualsWithTolerance(0.0);
+            }
+            dbObject.Dispose();
+
+            return result;
+        }
+
+        public static IList<ObjectId> GetNonZeroElevationPolylineCollection(Database database, IList<ObjectId> objectIds)
+        {
+            var nonZeroElevationPolylineCol = new List<ObjectId>();
+
+            using (var tr = database.TransactionManager.StartTransaction())
+            {
+                foreach (var objectId in objectIds)
+                {
+                    DBObject dbObject = tr.GetObject(objectId, OpenMode.ForRead);
+                    var parcel = dbObject as Polyline;
+                    if (parcel != null)
+                    {
+                        if (!parcel.Elevation.EqualsWithTolerance(0))
+                            nonZeroElevationPolylineCol.Add(objectId);
+
+                        continue;
+                    }
+
+                    var parcel2D = dbObject as Polyline2d;
+                    if (parcel2D == null) continue;
+                    if (!parcel2D.Elevation.EqualsWithTolerance(0))
+                        nonZeroElevationPolylineCol.Add(objectId);
+                }
+
+                tr.Commit();
+            }
+
+            return nonZeroElevationPolylineCol;
+        }
+
+        public static bool SetCurveElevationToZero(Transaction tr, ObjectId objectId)
+        {
+            bool result = false;
+            // use the using keyword so that the objects auto-dispose 
+            //(close)  at the end of the brace
+            // open for write otherwise ConvertFrom will fail
+            DBObject dbObject = tr.GetObject(objectId, OpenMode.ForRead);
+            var pline = dbObject as Polyline;
+            var pline2D = dbObject as Polyline2d;
+            var line = dbObject as Line;
+            var text = dbObject as DBText;
+            var mtext = dbObject as MText;
+            if (pline != null && !pline.Elevation.EqualsWithTolerance(0.0))
+            {
+                pline.UpgradeOpen();
+                pline.Elevation = 0.0;
+                result = pline.Elevation.EqualsWithTolerance(0.0);
+            }
+            else if (pline2D != null && !pline2D.Elevation.EqualsWithTolerance(0.0))
+            {
+                pline2D.UpgradeOpen();
+                pline2D.Elevation = 0.0;
+                result = pline2D.Elevation.EqualsWithTolerance(0.0);
+            }
+            else if (line != null)
+            {
+                line.UpgradeOpen();
+                var startPoint = new Point3d(line.StartPoint.X, line.StartPoint.Y, 0.0);
+                var endPoint = new Point3d(line.EndPoint.X, line.EndPoint.Y, 0.0);
+                line.StartPoint = startPoint;
+                line.EndPoint = endPoint;
+                result = true;
+            }
+            else if(text != null)
+            {
+                text.UpgradeOpen();
+                if (!text.AlignmentPoint.Z.EqualsWithTolerance(0.0))
+                {
+                    // Must use try/catch here because sometimes AlignmentPoint is not settable.
+                    try
+                    {
+                        text.AlignmentPoint = new Point3d(text.AlignmentPoint.X, text.AlignmentPoint.Y, 0.0);
+                    }
+                    catch
+                    {
+                    }
+                }
+                if (!text.Position.Z.EqualsWithTolerance(0.0))
+                {
+                    // Must use try/catch here because sometimes AlignmentPoint is not settable.
+                    try
+                    {
+                        text.Position = new Point3d(text.Position.X, text.Position.Y, 0.0);
+                    }
+                    catch
+                    {
+                    }
+                    
+                }
+                result = true;
+            }
+            else if (mtext != null)
+            {
+                mtext.UpgradeOpen();
+                mtext.Location = new Point3d(mtext.Location.X, mtext.Location.Y, 0.0);
+                result = true;
+            }
+
+            dbObject.Dispose();
+            return result;
+        }
+
+        public static bool SetCurveElevationToZero(ObjectId objectId)
+        {
+            using (var tr = objectId.Database.TransactionManager.StartTransaction())
+            {
+                bool res = SetCurveElevationToZero(tr, objectId);
+                tr.Commit();
+                return res;
+            }
+        }
+
+        public static void SetCurveElevationToZero(IList<ObjectId> objectIds)
+        {
+            if (!objectIds.Any())
+                return;
+
+            var database = objectIds.FirstOrDefault().Database;
+            using (var tr = database.TransactionManager.StartTransaction())
+            {
+                foreach (var objectId in objectIds)
+                {
+                    SetCurveElevationToZero(tr, objectId);
+                }
+                tr.Commit();
+            }
+        }
+        #endregion
+
+        public static Polyline CreatePolygon(Point3d[] points)
+        {
+            var polyline = new Autodesk.AutoCAD.DatabaseServices.Polyline();
+            for (int i = 0; i < points.Length; i++)
+                polyline.AddVertexAt(i, new Point2d(points[i].X, points[i].Y), 0, 0, 0);
+            polyline.Closed = true;
+            return polyline;
         }
     }
 }

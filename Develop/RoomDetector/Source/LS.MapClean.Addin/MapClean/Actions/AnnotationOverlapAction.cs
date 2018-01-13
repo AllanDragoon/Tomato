@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using LS.MapClean.Addin.Algorithms;
 
-namespace LS.MapClean.Addin.MapClean.Actions
+namespace LS.MapClean.Addin.MapClean
 {
     public class AnnotationOverlapAction : MapCleanActionBase
     {
@@ -29,7 +25,7 @@ namespace LS.MapClean.Addin.MapClean.Actions
         protected override IEnumerable<CheckResult> CheckImpl(IEnumerable<Autodesk.AutoCAD.DatabaseServices.ObjectId> selectedObjectIds)
         {
             var result = new List<AnnotationOverlapCheckResult>();
-            var algorithm = new PolygonIntersectSearcher(Document.Editor);
+            var algorithm = new PolygonIntersectSearcher(Document.Editor, null);
             algorithm.Check(selectedObjectIds);
             var intersects = algorithm.Intersects;
             if (intersects == null)

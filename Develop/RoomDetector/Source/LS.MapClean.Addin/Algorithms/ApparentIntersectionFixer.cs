@@ -64,10 +64,10 @@ namespace LS.MapClean.Addin.Algorithms
             // Create a KDTree for dangling vertices.
             var result = new List<IntersectionInfo>();
             var visitedPairs = new Dictionary<CurveVertex, CurveVertex>();
-            var kdTree = new CurveVertexKdTree<CurveVertex>(danglingVertices, it=>it.Point, ignoreZ: true);
+            var kdTree = new CurveVertexKdTree<CurveVertex>(danglingVertices, it=>it.Point.ToArray(), ignoreZ: true);
             foreach (var danglingVertex in danglingVertices)
             {
-                var neighbors = kdTree.NearestNeighbours(danglingVertex.Point, _tolerance*2.0);
+                var neighbors = kdTree.NearestNeighbours(danglingVertex.Point.ToArray(), _tolerance*2.0);
                 if (!neighbors.Any())
                     continue;
 

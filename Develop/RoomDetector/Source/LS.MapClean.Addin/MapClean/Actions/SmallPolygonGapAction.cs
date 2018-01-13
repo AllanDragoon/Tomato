@@ -25,7 +25,7 @@ namespace LS.MapClean.Addin.MapClean
 
         protected override IEnumerable<CheckResult> CheckImpl(IEnumerable<ObjectId> selectedObjectIds)
         {
-            var algorithm = new PolygonGapSearcherBspTree(Document.Editor, Tolerance);
+            var algorithm = new PolygonGapSearcherKdTree(Document.Editor, Tolerance);
             algorithm.Check(selectedObjectIds);
             var result = new List<SmallPolygonGapCheckResult>();
             foreach (var gap in algorithm.Gaps)

@@ -32,9 +32,12 @@ namespace LS.MapClean.Addin.Framework
             // Don't know if Application.Current.MainWindow is null in AutoCAD.
             try
             {
-                var mainWindow = Application.Current.MainWindow;
-                if (mainWindow != null)
-                    MainHandle = new WindowInteropHelper(mainWindow).Handle;
+                if (Application.Current != null)
+                {
+                    var mainWindow = Application.Current.MainWindow;
+                    if (mainWindow != null)
+                        MainHandle = new WindowInteropHelper(mainWindow).Handle;
+                }
             }
             catch
             {

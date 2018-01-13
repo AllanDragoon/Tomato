@@ -8,6 +8,7 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using LS.MapClean.Addin.Algorithms;
 using LS.MapClean.Addin.Framework;
+using LS.MapClean.Addin.MapClean;
 using LS.MapClean.Addin.MapClean.Actions;
 using LS.MapClean.Addin.MapClean.Actions2;
 using LS.MapClean.Addin.Palettes;
@@ -58,32 +59,41 @@ namespace LS.MapClean.Addin.MapClean
         {
             _actionAgents.Clear();
 
+            // None-zero elevation objects
+            AddActionAgent(ActionType.NoneZeroElevation, new ActionType[0], ActionStatus.Pending);
+            
+            // Arc segment check
+            AddActionAgent(ActionType.ArcSegment, new ActionType[0], ActionStatus.Pending);
+
+            // Rectify near points.
+            AddActionAgent(ActionType.RectifyPointDeviation, new ActionType[0], ActionStatus.Pending);
+
             // Break crossing objects.
             AddActionAgent(ActionType.BreakCrossing, new ActionType[0], ActionStatus.Pending);
 
             // Delete duplicate entities
             AddActionAgent(ActionType.DeleteDuplicates, new ActionType[] { ActionType.BreakCrossing }, ActionStatus.Disabled);
-            
-            // Extend under shoots
-            AddActionAgent(ActionType.ExtendUndershoots, new ActionType[] { ActionType.DeleteDuplicates }, ActionStatus.Disabled);
-            
-            // Apparent intersection
-            AddActionAgent(ActionType.ApparentIntersection, new ActionType[] { ActionType.ExtendUndershoots }, ActionStatus.Disabled);
-            
-            // Snap clustered
-            AddActionAgent(ActionType.SnapClustered, new ActionType[] { ActionType.ApparentIntersection }, ActionStatus.Disabled);
-
-            // Erase dangling
-            AddActionAgent(ActionType.EraseDangling, new ActionType[] { ActionType.SnapClustered }, ActionStatus.Disabled);
 
             // Zero area loop
-            AddActionAgent(ActionType.ZeroAreaLoop, new ActionType[] { ActionType.EraseDangling }, ActionStatus.Disabled);
+            AddActionAgent(ActionType.ZeroAreaLoop, new ActionType[] { ActionType.DeleteDuplicates }, ActionStatus.Disabled);
 
             // Zero length
             AddActionAgent(ActionType.ZeroLength, new ActionType[] { ActionType.ZeroAreaLoop }, ActionStatus.Disabled);
 
+            // Extend under shoots
+            AddActionAgent(ActionType.ExtendUndershoots, new ActionType[] { ActionType.ZeroLength }, ActionStatus.Disabled);
+            
+            // Apparent intersection
+            // AddActionAgent(ActionType.ApparentIntersection, new ActionType[] { ActionType.ExtendUndershoots }, ActionStatus.Disabled);
+            
+            // Snap clustered
+            // AddActionAgent(ActionType.SnapClustered, new ActionType[] { ActionType.ApparentIntersection }, ActionStatus.Disabled);
+
+            // Erase dangling
+            AddActionAgent(ActionType.EraseDangling, new ActionType[] { ActionType.ExtendUndershoots }, ActionStatus.Disabled);
+
             // Erase short
-            AddActionAgent(ActionType.EraseShort, new ActionType[] { ActionType.ZeroLength }, ActionStatus.Disabled);
+            //AddActionAgent(ActionType.EraseShort, new ActionType[] { ActionType.ZeroLength }, ActionStatus.Disabled);
 
             foreach (var pair in _actionAgents)
             {
@@ -115,7 +125,6 @@ namespace LS.MapClean.Addin.MapClean
             AddActionAgent(ActionType.FindDangling, new ActionType[] { ActionType.FindDangling }, ActionStatus.Disabled);
             AddActionAgent(ActionType.OverlapPolygon, new ActionType[] { ActionType.OverlapPolygon }, ActionStatus.Disabled);
 
-
             foreach (var pair in _actionAgents)
             {
                 pair.Value.StatusChanged += OnActionStatusChanged;
@@ -140,6 +149,12 @@ namespace LS.MapClean.Addin.MapClean
             MapCleanActionBase action = null;
             switch (actionType)
             {
+                case ActionType.NoneZeroElevation:
+                    action = new NoneZeroElevationAction(Document);
+                    break;
+                case ActionType.DuplicateVertexPline:
+                    action = new DuplicateVertexPlineAction(Document);
+                    break;
                 case ActionType.BreakCrossing:
                     action = new BreakCrossingObjectsAction(Document);
                     break;
@@ -183,6 +198,9 @@ namespace LS.MapClean.Addin.MapClean
                 case ActionType.IntersectPolygon:
                     action = new IntersectPolygonAction(Document);
                     break;
+                case ActionType.DuplicatePolygon:
+                    action = new DuplicatePolygonAction(Document);
+                    break;
                 case ActionType.SmallPolygonGap:
                     action = new SmallPolygonGapAction(Document);
                     break;
@@ -192,17 +210,29 @@ namespace LS.MapClean.Addin.MapClean
                 case ActionType.MissingVertexInPolygon:
                     action = new MissingVertexInPolygonAction(Document);
                     break;
-                case ActionType.OverlapPolygon:
-                    action = new OverlapPolygonAction(Document);
-                    break;
                 case ActionType.SelfIntersect2:
                     action = new SelfIntersectionInPolygonAction(Document);
                     break;
                 case ActionType.FindDangling:
                     action = new FindDanglingAction(Document);
                     break;
+                case ActionType.OverlapPolygon:
+                    action = new OverlapPolygonAction(Document);
+                    break;
                 case ActionType.AnnotationOverlap:
                     action = new AnnotationOverlapAction(Document);
+                    break;
+                case ActionType.FindIslandPolygon:
+                    action = new FindIslandPolygonAction(Document);
+                    break;
+                case ActionType.ArcSegment:
+                    action = new ArcSegmentAction(Document);
+                    break;
+                case ActionType.RectifyPointDeviation:
+                    action = new RectifyPointDeviationAction(Document);
+                    break;
+                case ActionType.SharpCornerPolygon:
+                    action = new SharpCornerAction(Document);
                     break;
             }
             return action;
@@ -319,13 +349,20 @@ namespace LS.MapClean.Addin.MapClean
         public bool ShowIntegrateCheckItem { get; private set; }
 
         /// <summary>
+        /// Whether only check polyline, default is false.
+        /// If mapclean, all curves will be checked.
+        /// If topological check, only polyline and polyline2d will be checked.
+        /// </summary>
+        public bool OnlyCheckPolyline { get; set; }
+
+        /// <summary>
         /// Delegate to get check ObjectIds.
         /// </summary>
-        public Func<Document, IEnumerable<ObjectId>> GetCheckObjectIds;
+        public Func<Document, IEnumerable<ObjectId>> PrepareObjectIdsFunc;
         /// <summary>
         /// Deletegate to post handle check objectIds
         /// </summary>
-        public Action<Document, IEnumerable<ObjectId>> PostHandleAfterCheck;
+        public Action<Document, IEnumerable<ObjectId>> DisposeObjectIdsFunc;
         #endregion
 
         #region APIs
@@ -346,7 +383,7 @@ namespace LS.MapClean.Addin.MapClean
             // 创建MapClean View和ViewModel.
             _actionsSettingViewModel = new ActionsSettingViewModel(this);
 
-            if (NewCheckWithDialog())
+            if (NewMapCleanCheckWithDialog())
             { 
                 // Show map clean panel
                 ShowMapCleanPanel(show: true, recordState:true);
@@ -453,8 +490,8 @@ namespace LS.MapClean.Addin.MapClean
             CurrentCheckResult = null;
             ClearCheckResults(raiseEvent: true);
             Document = null;
-            GetCheckObjectIds = null;
-            PostHandleAfterCheck = null;
+            PrepareObjectIdsFunc = null;
+            DisposeObjectIdsFunc = null;
         }
 
         public void SetExecutingActions(ActionType[] actionTypes)
@@ -520,28 +557,32 @@ namespace LS.MapClean.Addin.MapClean
                     PanelViewModel.CheckResultsVM.Clear();
                 ClearCheckResults(raiseEvent: false);
 
-                IEnumerable<ObjectId> selectedIds = null;
-                if (GetCheckObjectIds != null)
-                    selectedIds = GetCheckObjectIds(Document);
-                else
-                    selectedIds = GetAllPolylineObjectIds();
-                if (selectedIds == null || !selectedIds.Any())
+                IEnumerable<ObjectId> checkedIds = PrepareObjectIdsForCheck();
+                if (checkedIds == null || !checkedIds.Any())
                 {
                     Document.Editor.WriteMessage("\n没有可检查对象\n");
                     return;
                 }
 
                 // Check
-                NewCheckWithPrompt(selectedIds, "拓扑错误");
-
-                var agents = _actionAgents.Where(it => _executingActions.Contains(it.Key)).Select(it => it.Value);
-                foreach (var agent in agents)
+                try
                 {
-                    agent.Status |= ActionStatus.Executed;
+                    // 用try
+                    NewCheckWithPrompt(checkedIds, "拓扑错误");
+
+                    var agents = _actionAgents.Where(it => _executingActions.Contains(it.Key)).Select(it => it.Value);
+                    foreach (var agent in agents)
+                    {
+                        agent.Status |= ActionStatus.Executed;
+                    }
+                }
+                catch(Exception ex)
+                {
+                    Document.Editor.WriteMessage("\n"+ex.Message+"\n");
                 }
 
-                if (PostHandleAfterCheck != null)
-                    PostHandleAfterCheck(Document, selectedIds);
+                if (DisposeObjectIdsFunc != null)
+                    DisposeObjectIdsFunc(Document, checkedIds);
 
                 ShowMapCleanPanel(true, true);
             }
@@ -560,7 +601,7 @@ namespace LS.MapClean.Addin.MapClean
                 PanelViewModel.CheckResultsVM.Clear();
             ClearCheckResults(raiseEvent: false);
 
-            var selectedIds = GetSelectedObjectIds();
+            var selectedIds = PrepareObjectIdsForCheck();
             if (selectedIds == null || !selectedIds.Any())
             { 
                 Document.Editor.WriteMessage("\n没有可检查对象\n");
@@ -573,15 +614,6 @@ namespace LS.MapClean.Addin.MapClean
                 agent.Action.CheckAndFixAll(selectedIds);
                 agent.Status |= ActionStatus.Executed;
             }
-        }
-
-        /// <summary>
-        /// Continue check by switching current settings
-        /// </summary>
-        public void ContinueCheck()
-        {
-            _actionsSettingViewModel.ActionSelectVM.SwitchSelectedActions();
-            NewCheckWithDialog();
         }
 
         /// <summary>
@@ -694,7 +726,7 @@ namespace LS.MapClean.Addin.MapClean
         /// New check - start the settings dialog and check.
         /// </summary>
         /// <returns></returns>
-        public bool NewCheckWithDialog()
+        public bool NewMapCleanCheckWithDialog()
         {
             var dialog = DialogService.Instance.CreateDialog<ActionsSettingDialog>(null, _actionsSettingViewModel);
             var dialogResult = dialog.ShowDialog();
@@ -704,7 +736,9 @@ namespace LS.MapClean.Addin.MapClean
             // Clear all check results first.
             ClearCheckResults(raiseEvent: true);
 
-            var selectedIds = GetSelectedObjectIds();
+            // Will check all curves in model space.
+            OnlyCheckPolyline = false;
+            var selectedIds = PrepareObjectIdsForCheck();
             if (selectedIds == null || !selectedIds.Any())
             {
                 DialogService.Instance.ShowMessageBox(_actionsSettingViewModel, "图形区没有实体可检查", "提示：",
@@ -717,7 +751,7 @@ namespace LS.MapClean.Addin.MapClean
             {
                 using (var toleranceSWitcher = new SafeToleranceOverride())
                 {
-                    var algorithm = new BreakCrossingObjectsBsp(Document.Editor, 0.0);
+                    var algorithm = new BreakCrossingObjectsQuadTree(Document.Editor);
                     algorithm.Check(selectedIds);
 
                     Document.Editor.WriteMessage("\n共找到{0}个交叉对象，开始打断...", algorithm.CrossingInfos.Count());
@@ -736,7 +770,7 @@ namespace LS.MapClean.Addin.MapClean
             // After objects are broken, need to update selectedIds.
             if (_actionsSettingViewModel.ActionSelectVM.BreakCrossingObjects)
             {
-                selectedIds = GetSelectedObjectIds();
+                selectedIds = PrepareObjectIdsForCheck();
             }
 
             NewCheckWithPrompt(selectedIds, "拓扑错误");
@@ -768,20 +802,15 @@ namespace LS.MapClean.Addin.MapClean
             ClearCheckResults(raiseEvent: false);
 
             // Recheck
-            IEnumerable<ObjectId> selectedIds = null;
-            if (GetCheckObjectIds != null)
-                selectedIds = GetCheckObjectIds(Document);
-            else
-                selectedIds = GetAllPolylineObjectIds();
-
-            if (selectedIds == null || !selectedIds.Any())
+            IEnumerable<ObjectId> checkedIds = PrepareObjectIdsForCheck();
+            if (checkedIds == null || !checkedIds.Any())
                 return;
 
             int count = 0;
             var agents = _actionAgents.Where(it => _executingActions.Contains(it.Key)).Select(it => it.Value);
             foreach (var agent in agents)
             {
-                var checkResults = agent.Action.Check(selectedIds);
+                var checkResults = agent.Action.Check(checkedIds);
                 count += checkResults.Count();
                 if (rejectedObjIds != null)
                 {
@@ -796,8 +825,8 @@ namespace LS.MapClean.Addin.MapClean
                 AddCheckResultGroup(group, raiseEvent: true);
             }
 
-            if (PostHandleAfterCheck != null)
-                PostHandleAfterCheck(Document, selectedIds);
+            if (DisposeObjectIdsFunc != null)
+                DisposeObjectIdsFunc(Document, checkedIds);
             Document.Editor.WriteMessage("\n检查到{0}处{1}", count, objectName);
         }
 
@@ -859,6 +888,21 @@ namespace LS.MapClean.Addin.MapClean
             return false;
         }
 
+        public IEnumerable<ObjectId> PrepareObjectIdsForCheck()
+        {
+            IEnumerable<ObjectId> checkedIds = null;
+            if (PrepareObjectIdsFunc != null)
+                checkedIds = PrepareObjectIdsFunc(Document);
+            else
+            {
+                if (OnlyCheckPolyline)
+                    checkedIds = GetAllPolylineObjectIds();
+                else
+                    checkedIds = GetAllCurveObjectIds();
+            }
+            return checkedIds;
+        }
+
         private IEnumerable<ObjectId> GetAllPolylineObjectIds()
         {
             var objectIds = new List<ObjectId>();
@@ -888,7 +932,7 @@ namespace LS.MapClean.Addin.MapClean
             return GetAllVisiblePolylineObjectIds(Document);
         }
 
-        private IEnumerable<ObjectId> GetAllVisiblePolylineObjectIds(Document document)
+        public static IEnumerable<ObjectId> GetAllVisiblePolylineObjectIds(Document document)
         {
             var objectIds = new List<ObjectId>();
             using (var transaction = document.Database.TransactionManager.StartTransaction())
@@ -908,22 +952,24 @@ namespace LS.MapClean.Addin.MapClean
             return objectIds;
         }
 
-        private bool IsVisiblePolyline(DBObject entity, Transaction transaction)
+        private static bool IsVisiblePolyline(DBObject entity, Transaction transaction)
         {
             var type = entity.GetType();
             if (type != typeof(Polyline) && type != typeof(Polyline2d))
                 return false;
 
+            if (!((Entity) entity).Visible)
+                return false;
+
             var layer = (LayerTableRecord)transaction.GetObject(((Entity)entity).LayerId, OpenMode.ForRead);
-            if (layer.IsOff)
+            if (layer.IsOff || layer.IsFrozen)
                 return false;
 
             return true;
         }
 
-        private IEnumerable<ObjectId> GetSelectedObjectIds()
+        private IEnumerable<ObjectId> GetAllCurveObjectIds()
         {
-            var selectedIds = new List<ObjectId>();
             if (_actionsSettingViewModel == null)
             {
                 // Get all entity ids of database.
@@ -947,8 +993,8 @@ namespace LS.MapClean.Addin.MapClean
 
                 return allSelectedIds;
             }
-            else
-                return _actionsSettingViewModel.EntitySelectVM.SelectedObjectIds;
+            
+            return _actionsSettingViewModel.EntitySelectVM.SelectedObjectIds;
         }
 
         #endregion

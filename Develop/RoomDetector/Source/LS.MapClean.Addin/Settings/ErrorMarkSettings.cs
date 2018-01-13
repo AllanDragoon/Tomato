@@ -83,8 +83,10 @@ namespace LS.MapClean.Addin.Settings
             MarkerSize = 5.0;
             MarkShapes = new SerializableDictionary<ActionType, MarkShape>();
             // Initialize each mark shape
+            MarkShapes.Add(ActionType.DuplicateVertexPline, MarkShape.Circle);
             MarkShapes.Add(ActionType.DeleteDuplicates, MarkShape.Diamond);
             MarkShapes.Add(ActionType.EraseShort, MarkShape.Square);
+            MarkShapes.Add(ActionType.NoneZeroElevation, MarkShape.Square);
             MarkShapes.Add(ActionType.BreakCrossing, MarkShape.Square);
             MarkShapes.Add(ActionType.ExtendUndershoots, MarkShape.Circle);
             MarkShapes.Add(ActionType.ApparentIntersection, MarkShape.Circle);
@@ -105,10 +107,16 @@ namespace LS.MapClean.Addin.Settings
             MarkShapes.Add(ActionType.FindDangling, MarkShape.Circle);
             MarkShapes.Add(ActionType.OverlapPolygon, MarkShape.Circle);
             MarkShapes.Add(ActionType.AnnotationOverlap, MarkShape.Square);
+            MarkShapes.Add(ActionType.FindIslandPolygon, MarkShape.Square);
+            MarkShapes.Add(ActionType.ArcSegment, MarkShape.Circle);
+            MarkShapes.Add(ActionType.RectifyPointDeviation, MarkShape.Cross);
+            MarkShapes.Add(ActionType.SharpCornerPolygon, MarkShape.Circle);
 
             MarkColors = new SerializableDictionary<ActionType, Color>();
+            MarkColors.Add(ActionType.DuplicateVertexPline, Colors.Red);
             MarkColors.Add(ActionType.DeleteDuplicates, Colors.Cyan);
             MarkColors.Add(ActionType.EraseShort, Colors.Red);
+            MarkColors.Add(ActionType.NoneZeroElevation, Colors.BlueViolet);
             MarkColors.Add(ActionType.BreakCrossing, Colors.Green);
             MarkColors.Add(ActionType.ExtendUndershoots, Colors.Magenta);
             MarkColors.Add(ActionType.ApparentIntersection, Colors.Red);
@@ -129,6 +137,10 @@ namespace LS.MapClean.Addin.Settings
             MarkColors.Add(ActionType.FindDangling, Colors.BlueViolet);
             MarkColors.Add(ActionType.OverlapPolygon, Colors.BlueViolet);
             MarkColors.Add(ActionType.AnnotationOverlap, Colors.Fuchsia);
+            MarkColors.Add(ActionType.FindIslandPolygon, Colors.Fuchsia);
+            MarkColors.Add(ActionType.ArcSegment, Colors.Chocolate);
+            MarkColors.Add(ActionType.RectifyPointDeviation, Colors.Chartreuse);
+            MarkColors.Add(ActionType.SharpCornerPolygon, Colors.DeepPink);
         }
 
         private void CopyFrom(ErrorMarkSettings other)

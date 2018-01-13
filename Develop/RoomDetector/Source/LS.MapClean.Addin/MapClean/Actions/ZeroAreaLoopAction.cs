@@ -37,7 +37,7 @@ namespace LS.MapClean.Addin.MapClean
                     {
                         var dbObj = transaction.GetObject(selectedObjectId, OpenMode.ForRead);
                         var curve = dbObj as Curve;
-                        if (curve == null)
+                        if (curve == null || curve is Xline) // Xline will cause exception
                             continue;
 
                         bool isClosed = false;
@@ -56,7 +56,7 @@ namespace LS.MapClean.Addin.MapClean
                                 isClosed = true;
                         }
 
-                        if (isClosed && curve.Area.EqualsWithTolerance(0.0))
+                        if (isClosed && curve.Area.EqualsWithTolerance(0.0, 0.00001))
                         {
                             var checkResult = new ZeroAreaLoopCheckResult(selectedObjectId, curve.StartPoint);
                             results.Add(checkResult);

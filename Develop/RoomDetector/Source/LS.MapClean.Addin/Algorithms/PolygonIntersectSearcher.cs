@@ -10,6 +10,7 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.GraphicsInterface;
 using ClipperLib;
 using LS.MapClean.Addin.Utils;
+using TopologyTools.Utils;
 using Polyline = Autodesk.AutoCAD.DatabaseServices.Polyline;
 
 namespace LS.MapClean.Addin.Algorithms
@@ -52,47 +53,84 @@ namespace LS.MapClean.Addin.Algorithms
             get { return _intersects; }
         }
 
-        public PolygonIntersectSearcher(Editor editor)
+        /// <summary>
+        /// 是否排除包含的情况，默认是true
+        /// </summary>
+        public bool ExceptInclude { get; private set; }
+
+        /// <summary>
+        /// 相交计算时，如果TargetAreaRatio不为空，那么需要把面积比例考虑进去，小于此面积比例的不予考虑
+        /// </summary>
+        public double? TargetAreaRatio { get; private set; }
+
+        public PolygonIntersectSearcher(Editor editor, double? targetAreaRatio, bool exceptInclude = true)
             : base(editor)
         {
+            ExceptInclude = exceptInclude;
+            TargetAreaRatio = targetAreaRatio;
         }
 
         public override void Check(IEnumerable<ObjectId> selectedObjectIds)
         {
-            if (!selectedObjectIds.Any())
+            Check(selectedObjectIds, selectedObjectIds);
+        }
+
+        /// <summary>
+        /// 检查和sourceIds相交的objectIds
+        /// </summary>
+        /// <param name="objectIds"></param>
+        /// <param name="sourceIds"></param>
+        public void Check(IEnumerable<ObjectId> objectIds, IEnumerable<ObjectId> sourceIds)
+        {
+            if (!objectIds.Any() || !sourceIds.Any())
                 return;
 
             var database = Editor.Document.Database;
+            // Build a kd tree for searching intersection
             var allVertices = new List<CurveVertex>();
-            var curveIds = new List<ObjectId>();
+            var closedSourceIds = new List<ObjectId>();
             using (var transaction = database.TransactionManager.StartTransaction())
             {
-                foreach (var objId in selectedObjectIds)
+                foreach (var objectId in objectIds)
                 {
-                    var curve = transaction.GetObject(objId, OpenMode.ForRead) as Curve;
+                    var curve = transaction.GetObject(objectId, OpenMode.ForRead) as Curve;
                     if (curve == null)
                         continue;
                     if (!IsCurveClosed(curve))
                         continue;
 
-                    curveIds.Add(objId);
                     var vertices = CurveUtils.GetDistinctVertices(curve, transaction);
-                    allVertices.AddRange(vertices.Select(it => new CurveVertex(it, objId)));
+                    allVertices.AddRange(vertices.Select(it => new CurveVertex(it, objectId)));
+                    curve.Dispose();
+                }
+
+                foreach (var sourceId in sourceIds)
+                {
+                    var curve = transaction.GetObject(sourceId, OpenMode.ForRead) as Curve;
+                    if (curve == null)
+                        continue;
+                    if (!IsCurveClosed(curve))
+                        continue;
+
+                    closedSourceIds.Add(sourceId);
+                    curve.Dispose();
                 }
                 transaction.Commit();
             }
-            var kdTree = new CurveVertexKdTree<CurveVertex>(allVertices, it => it.Point, ignoreZ: true);
 
-            // Use kd tree to check include.
+            // Create a kdTree
+            var kdTree = new CurveVertexKdTree<CurveVertex>(allVertices, it => it.Point.ToArray(), ignoreZ: true);
+
+            // Use kd tree to check intersect.
             var intersects = new List<PolygonIntersect>();
             var analyzed = new HashSet<KeyValuePair<ObjectId, ObjectId>>();
             using (var transaction = database.TransactionManager.StartTransaction())
             {
-                foreach (var objectId in curveIds)
+                foreach (var objectId in closedSourceIds)
                 {
                     var curve = transaction.GetObject(objectId, OpenMode.ForRead) as Curve;
                     var extents = curve.GeometricExtents;
-                    var nearVertices = kdTree.BoxedRange(extents.MinPoint, extents.MaxPoint);
+                    var nearVertices = kdTree.BoxedRange(extents.MinPoint.ToArray(), extents.MaxPoint.ToArray());
 
                     foreach (var curveVertex in nearVertices)
                     {
@@ -165,10 +203,20 @@ namespace LS.MapClean.Addin.Algorithms
                 var points = path.Select(it => new Point3d(it.X * precision, it.Y * precision, 0.0)).ToArray();
                 var polyline = CreatePolygon(points);
                 // If the polygon's area is very small, just ignore, or it will bother user.
-                if (polyline.Area.Smaller(0.001))
+                var intersectArea = polyline.Area;
+                if (intersectArea.Smaller(0.001))
                 {
                     polyline.Dispose();
                     continue;
+                }
+                else if (TargetAreaRatio != null)
+                {
+                    var targetArea = targetCurve.Area;
+                    if ((intersectArea/targetArea).Smaller(TargetAreaRatio.Value))
+                    {
+                        polyline.Dispose();
+                        continue;
+                    }
                 }
                 intersectPaths.Add(polyline);
             }
@@ -176,12 +224,41 @@ namespace LS.MapClean.Addin.Algorithms
             if (intersectPaths.Count <= 0)
                 return null;
 
+            // 将包含的情况排除
+            if (intersectPaths.Count == 1)
+            {
+                var intersectPoints = CurveUtils.GetDistinctVertices(intersectPaths[0], null);
+                var qualified = IsIntersectQualified(sourceId, sourceVertices, targetId, targetVertices, intersectPoints, transaction);
+                if(!qualified)
+                {
+                    intersectPaths[0].Dispose();
+                    intersectPaths.Clear();
+                    return null;
+                }
+            }
+
             return new PolygonIntersect()
             {
                 SourceId = sourceId,
                 TargetId = targetId,
                 Intersections = intersectPaths
             };
+        }
+
+        protected virtual bool IsIntersectQualified(ObjectId sourceId, List<Point3d> sourceVertices, ObjectId targetId,
+            List<Point3d> targetVertices, List<Point3d> intersectPoints, Transaction transaction)
+        {
+            // 是否将包含的情况排除
+            if (ExceptInclude)
+            {
+                var duplicateWithSource = PolygonIncludeSearcher.AreDuplicateEntities(sourceVertices, intersectPoints);
+                var duplicateWithTarget = PolygonIncludeSearcher.AreDuplicateEntities(targetVertices, intersectPoints);
+                if (duplicateWithSource && !duplicateWithTarget || !duplicateWithSource && duplicateWithTarget)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private bool IsCurveClosed(Curve curve)
@@ -196,4 +273,43 @@ namespace LS.MapClean.Addin.Algorithms
             return closed;
         }
     }
+
+    public class PolygonIntersectWithoutHoleSearcher : PolygonIntersectSearcher
+    {
+        public PolygonIntersectWithoutHoleSearcher(Editor editor)
+            : base(editor, null, exceptInclude:false)
+        {
+        }
+        protected override bool IsIntersectQualified(ObjectId sourceId, List<Point3d> sourceVertices, ObjectId targetId,
+            List<Point3d> targetVertices, List<Point3d> intersectPoints, Transaction transaction)
+        {
+            var duplicateWithSource = PolygonIncludeSearcher.AreDuplicateEntities(sourceVertices, intersectPoints);
+            var duplicateWithTarget = PolygonIncludeSearcher.AreDuplicateEntities(targetVertices, intersectPoints);
+            // 确保它们不是软件认为的孔洞
+            if (duplicateWithSource && !duplicateWithTarget && PolygonHoleHelper.IsHoleReferenced(transaction, sourceId) 
+                || !duplicateWithSource && duplicateWithTarget && PolygonHoleHelper.IsHoleReferenced(transaction, targetId))
+            {
+                return false;
+            }
+            return true;
+        }
+    }
+
+    public class PolygonDuplicateSearcher : PolygonIntersectSearcher
+    {
+        public PolygonDuplicateSearcher(Editor editor)
+            : base(editor, null)
+        {
+        }
+
+        protected override bool IsIntersectQualified(ObjectId sourceId, List<Point3d> sourceVertices, ObjectId targetId,
+            List<Point3d> targetVertices, List<Point3d> intersectPoints, Transaction transaction)
+        {
+            var duplicate = PolygonIncludeSearcher.AreDuplicateEntities(sourceVertices, targetVertices);
+            if (duplicate)
+                return true;
+            return false;
+        }
+    }
+
 }

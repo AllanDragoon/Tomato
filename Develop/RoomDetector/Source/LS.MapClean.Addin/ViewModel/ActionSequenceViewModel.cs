@@ -66,6 +66,15 @@ namespace LS.MapClean.Addin.ViewModel
             string commandName = "";
             switch (actionType)
             {
+                case ActionType.NoneZeroElevation:
+                    commandName = "GCBWL";
+                    break;
+                case ActionType.ArcSegment:
+                    commandName = "JCHD";
+                    break;
+                case ActionType.RectifyPointDeviation:
+                    commandName = "JHJJD";
+                    break;
                 case ActionType.BreakCrossing:
                     commandName = "DDJCX";
                     break;
@@ -134,6 +143,15 @@ namespace LS.MapClean.Addin.ViewModel
             string filename = "";
             switch (actionType)
             {
+                case ActionType.NoneZeroElevation:
+                    filename = "none_zero_elevation.png";
+                    break;
+                case ActionType.ArcSegment:
+                    filename = "arc_segment.png";
+                    break;
+                case ActionType.RectifyPointDeviation:
+                    filename = "rectify_near_points.png";
+                    break;
                 case ActionType.BreakCrossing:
                     filename = "break_crossing.png";
                     break;

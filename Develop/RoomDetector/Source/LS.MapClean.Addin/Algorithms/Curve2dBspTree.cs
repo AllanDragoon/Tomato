@@ -193,13 +193,18 @@ namespace LS.MapClean.Addin.Algorithms
             var inlineSegments = new List<BspSegment>();
             inlineSegments.Add(segment);
 
+            var leftSegsStartOnSplitLine = new List<BspSegment>();
+            var leftSegsEndOnSplitLine = new List<BspSegment>();
+            var rightSegsStartOnSplitLine = new List<BspSegment>();
+            var rightSegsEndOnSplitLine = new List<BspSegment>();
             foreach(var nextSegment in segments)
             {
                 if (nextSegment == segment)
                     continue;
 
                 BspSegment left, right, inline;
-                SplitSegment(segment, nextSegment, out left, out right, out inline);
+                double startVal, endVal;
+                SplitSegment(segment, nextSegment, out left, out right, out inline, out startVal, out endVal);
                 if (left != null)
                     leftSegments.Add(left);
                 if (right != null)
@@ -208,7 +213,23 @@ namespace LS.MapClean.Addin.Algorithms
                 {
                     inlineSegments.Add(inline);
                 }
+
+                if (left != null && right == null)
+                {
+                    if(startVal.EqualsWithTolerance(0.0))
+                        leftSegsStartOnSplitLine.Add(left);
+                    else if(endVal.EqualsWithTolerance(0.0))
+                        leftSegsEndOnSplitLine.Add(left);
+                }
+                else if (left == null && right != null)
+                {
+                    if(startVal.EqualsWithTolerance(0.0))
+                        rightSegsStartOnSplitLine.Add(right);
+                    else if(endVal.EqualsWithTolerance(0.0))
+                        rightSegsEndOnSplitLine.Add(right);
+                }
             }
+
             // Update node's segment's information.
             if (inlineSegments.Count > 1)
             {
@@ -221,6 +242,85 @@ namespace LS.MapClean.Addin.Algorithms
                 foreach (var rightSegment in rightSegments)
                 {
                     UpdateSplitInfoForInlineSegments(rightSegment, inlineSegments);
+                }
+            }
+
+            // 
+            if (leftSegsStartOnSplitLine.Count > 0)
+            {
+                foreach (var bspSegment in leftSegsStartOnSplitLine)
+                {
+                    var startPoint = bspSegment.LineSegment.StartPoint;
+                    var rightStartSegs = rightSegsStartOnSplitLine.Where(
+                            it => it.LineSegment.StartPoint.IsEqualTo(startPoint));
+                    var rightEndSegs = rightSegsEndOnSplitLine.Where(
+                        it => it.LineSegment.EndPoint.IsEqualTo(startPoint));
+                    var splitInfos = new List<BspSplitInfo>();
+                    foreach (var rightStartSeg in rightStartSegs)
+                    {
+                        splitInfos.Add(new BspSplitInfo()
+                        {
+                            IsSplitted = false,
+                            SourceSegment = rightStartSeg,
+                            SourceParam = 0.0
+                        });
+                    }
+                    foreach (var rightEndSeg in rightEndSegs)
+                    {
+                        splitInfos.Add(new BspSplitInfo()
+                        {
+                            IsSplitted = false,
+                            SourceSegment = rightEndSeg,
+                            SourceParam = 1.0
+                        });
+                    }
+                    if (splitInfos.Count > 0)
+                    {
+                        if (bspSegment.StartSplitInfos != null && bspSegment.StartSplitInfos.Length > 0)
+                        {
+                            splitInfos.InsertRange(0, bspSegment.StartSplitInfos);
+                        }
+                        bspSegment.StartSplitInfos = splitInfos.ToArray();
+                    }
+                }
+            }
+
+            if (leftSegsEndOnSplitLine.Count > 0)
+            {
+                foreach (var bspSegment in leftSegsEndOnSplitLine)
+                {
+                    var endPoint = bspSegment.LineSegment.EndPoint;
+                    var rightStartSegs = rightSegsStartOnSplitLine.Where(
+                            it => it.LineSegment.StartPoint.IsEqualTo(endPoint));
+                    var rightEndSegs = rightSegsEndOnSplitLine.Where(
+                        it => it.LineSegment.EndPoint.IsEqualTo(endPoint));
+                    var splitInfos = new List<BspSplitInfo>();
+                    foreach (var rightStartSeg in rightStartSegs)
+                    {
+                        splitInfos.Add(new BspSplitInfo()
+                        {
+                            IsSplitted = false,
+                            SourceSegment = rightStartSeg,
+                            SourceParam = 0.0
+                        });
+                    }
+                    foreach (var rightEndSeg in rightEndSegs)
+                    {
+                        splitInfos.Add(new BspSplitInfo()
+                        {
+                            IsSplitted = false,
+                            SourceSegment = rightEndSeg,
+                            SourceParam = 1.0
+                        });
+                    }
+                    if (splitInfos.Count > 0)
+                    {
+                        if (bspSegment.EndSplitInfos != null && bspSegment.EndSplitInfos.Length > 0)
+                        {
+                            splitInfos.InsertRange(0, bspSegment.EndSplitInfos);
+                        }
+                        bspSegment.EndSplitInfos = splitInfos.ToArray();
+                    }
                 }
             }
 
@@ -278,6 +378,12 @@ namespace LS.MapClean.Addin.Algorithms
             var splitInfos = new List<BspSplitInfo>();
             for (int i = 1; i < inlineSegments.Count; i++)
             {
+                // 需要判断是否在线上，因为GetParameterOf函数是不准确的。
+                // 另外，虽然共线，也是近似共线，所以要用IsOn
+                var isOn = inlineSegments[i].LineSegment.IsOn(point);
+                if (!isOn)
+                    continue;
+
                 var param = inlineSegments[i].LineSegment.GetParameterOf(point);
                 splitInfos.Add(new BspSplitInfo()
                 {
@@ -299,11 +405,14 @@ namespace LS.MapClean.Addin.Algorithms
         }
 
         private void SplitSegment(BspSegment sourceSegment, BspSegment targetSegment, 
-            out BspSegment left, out BspSegment right, out BspSegment inline)
+            out BspSegment left, out BspSegment right, out BspSegment inline,
+            out double startVal, out double endVal)
         {
             left = null;
             right = null;
             inline = null;
+            startVal = 0.0;
+            endVal = 0.0;
 
             var sourceStart = sourceSegment.LineSegment.StartPoint;
             var sourceEnd = sourceSegment.LineSegment.EndPoint;
@@ -315,8 +424,13 @@ namespace LS.MapClean.Addin.Algorithms
             if (targetStart == targetEnd)
                 return;
 
-            var startVal = IsLeft(sourceStart, sourceEnd, targetStart);
-            var endVal = IsLeft(sourceStart, sourceEnd, targetEnd);
+            // Allan: I found IsLeft is not good to determine whether a point is left or right
+            // if the segment is too long, so divide it by length.
+            var sourceLength = sourceSegment.LineSegment.Length;
+            var targetLength = targetSegment.LineSegment.Length;
+            var length = sourceLength + targetLength;
+            startVal = IsLeft(sourceStart, sourceEnd, targetStart) / length;
+            endVal = IsLeft(sourceStart, sourceEnd, targetEnd) / length;
 
             //// For fixing some error by small values.
             //using (var switcher = new SafeToleranceOverride(0.0005, 0.0005))
@@ -391,50 +505,78 @@ namespace LS.MapClean.Addin.Algorithms
                     var intersect = points[0];
                     var segmentStart = new LineSegment2d(targetStart, intersect);
                     var segmentEnd = new LineSegment2d(intersect, targetEnd);
-                    var sourceParam = sourceSegment.LineSegment.GetParameterOf(intersect);
-                    
-                    var splitInfo = new BspSplitInfo()
+                    // 如果segmentStart过短，就认为交点是targetStart。
+                    // 否则在计算过程中就会矫枉过正，导致本不是相交点的地方成为相交点
+                    if (segmentStart.Length.SmallerOrEqual(DoubleExtensions.STolerance))
                     {
-                        SourceSegment = sourceSegment,
-                        SourceParam = sourceParam
-                    };
-
-                    BspSegment templeft = null;
-                    if (segmentStart.Length.Larger(0.0))
-                    {
-                        templeft = new BspSegment()
-                        {
-                            LineSegment = segmentStart,
-                            EntityId = targetSegment.EntityId,
-                            StartSplitInfos = targetSegment.StartSplitInfos,
-                            EndSplitInfos = new BspSplitInfo[] { splitInfo },
-                            OriginalSegment = targetSegment
-                        };
+                        if (endVal.EqualsWithTolerance(0.0))
+                            inline = targetSegment;
+                        else if (endVal.Larger(0.0))
+                            left = targetSegment;
+                        else if (endVal.Smaller(0.0))
+                            right = targetSegment;
                     }
-
-                    BspSegment tempRight = null;
-                    if (segmentEnd.Length.Larger(0.0))
+                    else if (segmentEnd.Length.SmallerOrEqual(DoubleExtensions.STolerance))
                     {
-                        tempRight = new BspSegment()
-                        {
-                            LineSegment = segmentEnd,
-                            EntityId = targetSegment.EntityId,
-                            StartSplitInfos = new BspSplitInfo[] { splitInfo },
-                            EndSplitInfos = targetSegment.EndSplitInfos,
-                            OriginalSegment = targetSegment
-                        };
-                    }
-
-                    if (startVal.LargerOrEqual(0.0))
-                    {
-                        left = templeft;
-                        right = tempRight;
+                        if (startVal.EqualsWithTolerance(0.0))
+                            inline = targetSegment;
+                        else if (startVal.Larger(0.0))
+                            left = targetSegment;
+                        else if (startVal.Smaller(0.0))
+                            right = targetSegment;
                     }
                     else
                     {
-                        left = tempRight;
-                        right = templeft;
+                        var sourceParam = sourceSegment.LineSegment.GetParameterOf(intersect);
+                        var splitInfo = new BspSplitInfo()
+                        {
+                            SourceSegment = sourceSegment,
+                            SourceParam = sourceParam
+                        };
+
+                        BspSegment templeft = null;
+                        if (segmentStart.Length.Larger(0.0))
+                        {
+                            templeft = new BspSegment()
+                            {
+                                LineSegment = segmentStart,
+                                EntityId = targetSegment.EntityId,
+                                StartSplitInfos = targetSegment.StartSplitInfos,
+                                EndSplitInfos = new BspSplitInfo[] { splitInfo },
+                                OriginalSegment = targetSegment
+                            };
+                        }
+
+                        BspSegment tempRight = null;
+                        if (segmentEnd.Length.Larger(0.0))
+                        {
+                            tempRight = new BspSegment()
+                            {
+                                LineSegment = segmentEnd,
+                                EntityId = targetSegment.EntityId,
+                                StartSplitInfos = new BspSplitInfo[] { splitInfo },
+                                EndSplitInfos = targetSegment.EndSplitInfos,
+                                OriginalSegment = targetSegment
+                            };
+                        }
+
+                        if (startVal.LargerOrEqual(0.0))
+                        {
+                            left = templeft;
+                            right = tempRight;
+                        }
+                        else
+                        {
+                            left = tempRight;
+                            right = templeft;
+                        }
                     }
+                }
+                else
+                { 
+                    // 如果没有任何交点，我们就认为它是inline的，因为往往因为计算精度，
+                    // 导致startVal和endVal的值在0.001左右，但是用IntersectWith计算不出任何交点
+                    inline = targetSegment;
                 }
             }
         }

@@ -36,7 +36,7 @@ namespace LS.MapClean.Addin.Utils
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.WriteLine(ex.Message);
-                MessageBox.Show(@"读取xdata有错误", @"建库软件", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+                //MessageBox.Show(@"读取xdata有错误", @"建库软件", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
             }
 
             return attribute;

@@ -166,5 +166,27 @@ namespace LS.MapClean.Addin.Utils
                 return (0);
         }
         #endregion
+
+        #region Polygon Area
+        /// <summary>
+        /// http://mathopenref.com/coordpolygonarea2.html
+        /// </summary>
+        /// <param name="points"></param>
+        /// <returns></returns>
+        public static double PolygonArea(Point3d[] points)
+        {
+            var area = 0d;         // Accumulates area in the loop
+            var j = points.Length - 1;  // The last vertex is the 'previous' one to the first
+
+            for (var i = 0; i < points.Length; i++)
+            {
+                var previous = points[j];
+                var point = points[i];
+                area = area + (previous.X + point.X) * (previous.Y - point.Y);
+                j = i;  //j is previous vertex to i
+            }
+            return Math.Abs(area / 2);
+        }
+        #endregion
     }
 }

@@ -45,7 +45,7 @@ namespace LS.MapClean.Addin.MapClean
             //return results;
 
             var editor = Document.Editor;
-            var algorithm = new BreakCrossingObjectsBsp(editor, Tolerance);
+            var algorithm = new BreakCrossingObjectsQuadTree(editor);
             algorithm.Check(selectedObjectIds);
             var result = new List<CrossingCheckResult>();
             foreach (var crossingInfo in algorithm.CrossingInfos)
@@ -111,25 +111,40 @@ namespace LS.MapClean.Addin.MapClean
         protected override bool CheckAndFixAllImpl(IEnumerable<ObjectId> ids)
         {
             var editor = Document.Editor;
-            editor.WriteMessage("\n开始检查交叉对象...");
-            var algorithm = new BreakCrossingObjectsBsp(editor, 0.0);
-            algorithm.Check(ids);
-            var count = algorithm.CrossingInfos.Count();
-            if (count == 0)
+            var algorithm = new BreakCrossingObjectsQuadTree(editor);
+
+            var checkedIds = ids;
+            var first = true;
+            var lastCount = 0;
+            using(var waitCursor = new WaitCursorSwitcher())
+            while (true)
             {
-                editor.WriteMessage("\n检测到0处交叉，无需修复\n");
-                return true;
+                var checkMessage = String.Format("\n{0}检查交叉对象...", first?"开始":"继续");
+                if (first)
+                    first = false;
+                editor.WriteMessage(checkMessage);
+
+                algorithm.Check(checkedIds);
+                var count = algorithm.CrossingInfos.Count();
+                if (count == 0 || count == lastCount)
+                {
+                    editor.WriteMessage("\n检测到0处交叉，无需修复\n");
+                    editor.WriteMessage("\n提示：在删除重复对象之后，请再执行一次打断交叉对象，保证图形能够完全清理成功\n");
+                    return true;
+                }
+
+                lastCount = count;
+                var message = String.Format("\n检测到{0}处交叉，是否打断？", count);
+                if (!AcadPromptUtil.AskContinue(message, editor))
+                    return true;
+
+                editor.WriteMessage("\n开始打断...");
+                var breakIdPairs = algorithm.Fix(eraseOld: true);
+                
+                // Need recheck
+                // TODO: this is a temporary solution, will be modified for the new checked Ids set.
+                checkedIds = MapCleanService.Instance.PrepareObjectIdsForCheck();
             }
-
-            var message = String.Format("\n检测到{0}处交叉，是否打断？", count);
-
-            if (!AcadPromptUtil.AskContinue(message, editor))
-                return true;
-
-            editor.WriteMessage("\n开始打断...");
-            algorithm.Fix(eraseOld:true);
-            editor.WriteMessage("\n打断所有交叉线成功！\n");
-            return true;
         }
     }
 }
