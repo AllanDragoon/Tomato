@@ -150,6 +150,20 @@ namespace TopologyTools.Utils
                 holeIds = result.Value.GetObjectIds();
             }
 
+            // 检查地块是否封闭
+            using (var tr = document.Database.TransactionManager.StartTransaction())
+            {
+                foreach (var objectId in holeIds)
+                {
+                    var curve = tr.GetObject(objectId, OpenMode.ForRead) as Curve;
+                    if (curve != null && !curve.Closed)
+                    {
+                        document.Editor.WriteMessage("\n错误：选择的孔洞不封闭");
+                        return;
+                    }
+                }
+            }
+
             // 外边界
             Point3d pickedPoint;
             if (!SelectPolylineEntity("\n选择要扣除面积的地块界线: ", "\n实体错误", out parcelId, out pickedPoint)
@@ -162,7 +176,7 @@ namespace TopologyTools.Utils
                 var curve = tr.GetObject(parcelId, OpenMode.ForRead) as Curve;
                 if (curve != null && !curve.Closed)
                 {
-                    document.Editor.WriteMessage("\n选择的地块界线不封闭");
+                    document.Editor.WriteMessage("\n错误：选择的地块界线不封闭");
                     return;
                 }
             }
@@ -170,6 +184,21 @@ namespace TopologyTools.Utils
             // 如果地块是合适的
             if (parcelId.IsValid && holeIds.Any())
             {
+                foreach (var objectId in holeIds)
+                {
+                    if (objectId == parcelId)
+                    {
+                        document.Editor.WriteMessage("\n错误：句柄为{0}的孔洞与地块边界相同", objectId.Handle);
+                        return;
+                    }
+
+                    if (!WithIn(objectId, parcelId))
+                    {
+                        document.Editor.WriteMessage("\n错误：句柄为{0}的孔洞不在地块边界内部", objectId.Handle);
+                        return;
+                    }
+                }
+
                 // 新增孔洞到地块
                 var parcel = new ParcelPolygon(parcelId);
                 parcel.AddHoleIds(holeIds);
@@ -281,11 +310,27 @@ namespace TopologyTools.Utils
             return false;
         }
 
+        public static bool WithIn(ObjectId hole, ObjectId pacelId)
+        {
+            using (var tr = hole.Database.TransactionManager.StartTransaction())
+            {
+                // 读入多边形数据
+                var reader = new DwgReader();
+                var polygon = reader.ReadEntityAsPolygon(tr, hole) as IPolygon;
+                var polygon2 = reader.ReadEntityAsPolygon(tr, pacelId) as IPolygon;
+                if (polygon != null && polygon2 != null)
+                {
+                    return polygon.Within(polygon2);
+                }
+            }
+            return false;
+        }
+
         public static List<ObjectId> FindPotentialHoles(Document document)
         {
             var polylineIds = CadUtils.FindAllPolylines(document);
             var datebase = document.Database;
-            var objectIds = new List<ObjectId>();
+            var hashSetObjIds = new HashSet<ObjectId>(); // 避免重复的数据，用hashset
             using (var tr = datebase.TransactionManager.StartTransaction())
             {
                 // 读入多边形数据
@@ -328,24 +373,34 @@ namespace TopologyTools.Utils
                     foreach (var geom in quadtree.Query(polygon.EnvelopeInternal))
                     {
                         var hole = geom as IPolygon;
-                        ObjectId holeId = ObjectId.Null;
                         if (hole == null)
                             continue;
 
-                        holeId = (ObjectId) hole.UserData;
-
-                        if (possibleHoleIds.Contains(holeId) 
+                        var holeId = (ObjectId) hole.UserData;
+                        if (possibleHoleIds.Contains(holeId) // 不是潜在的地块
                             && !hole.Equals(polygon) // 不是同一个多边形
-                            && hole.UserData != polygon.UserData
-                            && hole.Within(polygon))  // 有洞！)
+                            && hole.UserData != polygon.UserData // 不是自己
+                            && hole.Within(polygon))  // 有洞！
                         {
-                            objectIds.Add(holeId);
+                            hashSetObjIds.Add(holeId); // 
                         }
                     }
                 }
                 tr.Commit();
+                return hashSetObjIds.ToList();
+            }
+        }
 
-                return objectIds;
+        public static bool IsHoleReferenced(ObjectId holeId)
+        {
+            using (var tr = holeId.Database.TransactionManager.StartTransaction())
+            {
+                using (var ent = tr.GetObject(holeId, OpenMode.ForRead) as Entity)
+                {
+                    var referenced = IsHoleReferenced(ent, tr);
+                    tr.Commit();
+                    return referenced;
+                }
             }
         }
 
@@ -353,27 +408,37 @@ namespace TopologyTools.Utils
         {
             using (var ent = tr.GetObject(holeId, OpenMode.ForRead) as Entity)
             {
-                if (ent is Polyline2d || ent is Polyline)
-                {
-                    // 如果不是flag，没有被引用
-                    string cassFlag = CadUtils.GetCassFlag(ent);
-                    if (CassFlagIsland.ToLower() != cassFlag.ToLower())
-                        return false;
+                return IsHoleReferenced(ent, tr);
+            }
+        }
 
-                    var groupId = GroupUtils.FindEntityGroupId(tr, ent);
-                    if (!groupId.IsValid)
-                        return false;
+        public static bool IsHoleReferenced(Entity ent, Transaction tr)
+        {
+            if (ent is Polyline2d || ent is Polyline)
+            {
+                // 如果不是flag，没有被引用
+                string cassFlag = CadUtils.GetCassFlag(ent);
+                if (CassFlagIsland.ToLower() != cassFlag.ToLower())
+                    return false;
 
-                    // 如果不是flag，没有被引用
-                    //ObjectId[] entityIds = GroupUtils.GetGroupedObjects(ent);
-                    //foreach (ObjectId entityId in entityIds)
-                    //{
+                var groupId = GroupUtils.FindEntityGroupId(tr, ent);
+                if (!groupId.IsValid)
+                    return false;
 
-                    //}
-                }
+                // 如果不是flag，没有被引用
+                //ObjectId[] entityIds = GroupUtils.GetGroupedObjects(ent);
+                //foreach (ObjectId entityId in entityIds)
+                //{
+
+                //}
+                var realId = ParcelPolygon.FindParcelOfHole(tr, ent);
+                if (realId.IsNull)
+                    return false;
+
+                return true;
             }
 
-            return true;
+            return false;
         }
 
         public static List<ObjectId> FindUnreferenceHoles(Document document)
@@ -590,13 +655,13 @@ namespace TopologyTools.Utils
             return dictionary;
         }
 
-        public static double GetPolygonArea(ObjectId objectId)
+        public static decimal GetPolygonArea(ObjectId objectId)
         {
             var parcelPolygon = new ParcelPolygon(objectId);
             return parcelPolygon.GetArea();
         }
 
-        public static double GetPolygonArea(Transaction tr, Entity entity)
+        public static decimal GetPolygonArea(Transaction tr, Entity entity)
         {
             var parcelPolygon = new ParcelPolygon(tr, entity as Curve);
             return parcelPolygon.GetArea();
@@ -677,7 +742,7 @@ namespace TopologyTools.Utils
                 return null;
             }
 
-            public double GetArea()
+            public decimal GetArea()
             {
                 if (Curve != null && Curve.Closed)
                 {
@@ -686,12 +751,12 @@ namespace TopologyTools.Utils
                         double area = Curve.Area;
                         if (Double.IsNaN(area))
                             return 0;
-                        return area;
+                        return (decimal)area;
                     }
 
                     var polygon = GetPolygon(Transaction);
                     if (polygon != null)
-                        return polygon.Area;
+                        return (decimal)polygon.Area;
                 }
                 return 0;
             }
@@ -802,6 +867,84 @@ namespace TopologyTools.Utils
                 }
 
                 return holeIds.ToArray();
+            }
+
+            public static ObjectId FindParcelOfHole(Transaction tr, Entity hole)
+            {
+                var entityIds = GroupUtils.GetGroupedObjects(tr, hole);
+                ObjectId entityId = ObjectId.Null;
+                foreach (var objectId in entityIds)
+                {
+                    if (objectId == hole.Id)
+                        continue;
+
+                    using (var ent = tr.GetObject(objectId, OpenMode.ForRead))
+                    {
+                        if (ent is Polyline2d || ent is Polyline)
+                        {
+                            string cassFlag = CadUtils.GetCassFlag(ent);
+                            if (CassFlagName.ToLower() == cassFlag.ToLower())
+                            {
+                                entityId = objectId;
+                                break;
+                            }
+                        }
+                    }
+                }
+                return entityId;
+            }
+
+            public static void RemoveUnReferenceHoles()
+            {
+                var document = Application.DocumentManager.MdiActiveDocument;
+                var holeIds = FindUnreferenceHoles(document);
+                if (!holeIds.Any())
+                {
+                    document.Editor.WriteMessage("\n 没有引用错误的孔洞");
+                    return;
+                }
+
+                CleanupSelfRefHoles(holeIds.ToArray());
+            }
+
+            public static void CleanupSelfRefHoles(ObjectId[] holeIds)
+            {
+                var database = holeIds[0].Database;
+                using (var tr = database.TransactionManager.StartTransaction())
+                {
+                    foreach (var holeId in holeIds)
+                    {
+                        var hole = database.TransactionManager.GetObject(holeId, OpenMode.ForRead) as Entity;
+                        var col = hole.GetPersistentReactorIds();
+                        if (col != null)
+                        {
+                            foreach (ObjectId id in col)
+                            {
+                                using (DBObject obj = tr.GetObject(id, OpenMode.ForRead))
+                                {
+                                    if (obj is Group)
+                                    {
+                                        var group = obj as Group;
+                                        group.UpgradeOpen();
+                                        var objectIds = GroupUtils.GetGroupedObjects(tr, hole);
+                                        // 如果组里面只有一个，直接删除组
+                                        if (objectIds.Count() == 1)
+                                        {
+                                            group.Erase();
+                                        }
+                                        // 如果组里面有两个，并且两个编码一样
+                                        if (objectIds.Count() == 2 && objectIds[0] == objectIds[1])
+                                        {
+                                            group.Erase();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    tr.Commit();
+                }
             }
 
             static bool IsPolygonHasHole(Transaction tr, Entity entity)

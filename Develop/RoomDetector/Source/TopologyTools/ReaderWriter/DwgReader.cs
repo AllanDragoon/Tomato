@@ -105,9 +105,10 @@ namespace TopologyTools.ReaderWriter
             var coordinateList = ReadCoordination(polyline);
             if (coordinateList.Count > 1)
             {
-                Coordinate[] linePts = CoordinateArrays.RemoveRepeatedPoints(coordinateList.ToCoordinateArray());
-                if (linePts.Count() > 1)
-                    return this.GeometryFactory.CreateLineString(linePts);
+                // 让NTS与传入的数据保持一致，不自动删除点
+                //Coordinate[] linePts = CoordinateArrays.RemoveRepeatedPoints(coordinateList.ToCoordinateArray());
+                //if (linePts.Count() > 1)
+                return this.GeometryFactory.CreateLineString(coordinateList.ToCoordinateArray());
             }
 			return LineString.Empty;
 		}
@@ -175,19 +176,21 @@ namespace TopologyTools.ReaderWriter
 		    var coordinateList = ReadCoordination(polyline2D, tr);
             if (coordinateList.Count > 1)
             {
-                Coordinate[] linePts = CoordinateArrays.RemoveRepeatedPoints(coordinateList.ToCoordinateArray());
-                if (linePts.Count() > 1)
-                    return this.GeometryFactory.CreateLineString(linePts);
+                //Coordinate[] linePts = CoordinateArrays.RemoveRepeatedPoints(coordinateList.ToCoordinateArray());
+                //if (linePts.Count() > 1)
+                return this.GeometryFactory.CreateLineString(coordinateList.ToCoordinateArray());
             }
 			return LineString.Empty;
 		}
 
 		public ILineString ReadLineString(Line line)
 		{
-			var coordinateList = new CoordinateList();
-			coordinateList.Add(this.ReadCoordinate(line.StartPoint));
-			coordinateList.Add(this.ReadCoordinate(line.EndPoint), this.AllowRepeatedCoordinates);
-			if (coordinateList.Count > 1)
+			var coordinateList = new CoordinateList
+			{
+			    this.ReadCoordinate(line.StartPoint),
+			    {this.ReadCoordinate(line.EndPoint), this.AllowRepeatedCoordinates}
+			};
+		    if (coordinateList.Count > 1)
 			{
 				return this.GeometryFactory.CreateLineString(coordinateList.ToCoordinateArray());
 			}
@@ -307,7 +310,7 @@ namespace TopologyTools.ReaderWriter
             Polyline polyline = curve as Polyline;
             if (polyline != null)
             {
-                return polyline.NumberOfVertices > 3;
+                return polyline.NumberOfVertices >= 3;
             }
 
             Polyline2d polyline2d = curve as Polyline2d;
@@ -317,7 +320,7 @@ namespace TopologyTools.ReaderWriter
                 foreach (var vertex in polyline2d)
                 {
                     i++;
-                    if (i > 3)
+                    if (i >= 3)
                         return true;
                 }
             }
@@ -329,6 +332,8 @@ namespace TopologyTools.ReaderWriter
             var coordinateList = ReadCoordination(polyline);
             if (coordinateList.Count > 1)
             {
+                if (!coordinateList[0].Equals(coordinateList[coordinateList.Count - 1]))
+                    coordinateList.Add(coordinateList[0]);
                 return this.GeometryFactory.CreatePolygon(coordinateList.ToCoordinateArray());
             }
             return Polygon.Empty;
@@ -339,6 +344,9 @@ namespace TopologyTools.ReaderWriter
             var coordinateList = ReadCoordination(polyline, tr);
             if (coordinateList.Count > 1)
             {
+                if (!coordinateList[0].Equals(coordinateList[coordinateList.Count - 1]))
+                    coordinateList.Add(coordinateList[0]);
+
                 return this.GeometryFactory.CreatePolygon(coordinateList.ToCoordinateArray());
             }
             return Polygon.Empty;
@@ -353,7 +361,14 @@ namespace TopologyTools.ReaderWriter
                 SegmentType segmentType = polyline.GetSegmentType(i);
                 if (segmentType == SegmentType.Arc)
                 {
-                    coordinateList.Add(this.GetTessellatedCurveCoordinates(polyline.GetArcSegmentAt(i)), this.AllowRepeatedCoordinates);
+                    try
+                    {
+                        coordinateList.Add(this.GetTessellatedCurveCoordinates(polyline.GetArcSegmentAt(i)), this.AllowRepeatedCoordinates);
+                    }
+                    catch (Exception ex)
+                    {
+                        coordinateList.Add(this.ReadCoordinate(polyline.GetPoint3dAt(i)), this.AllowRepeatedCoordinates);
+                    }
                 }
                 else
                 {

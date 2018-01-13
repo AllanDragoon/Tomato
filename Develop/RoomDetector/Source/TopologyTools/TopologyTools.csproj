@@ -94,6 +94,7 @@
     <Compile Include="GeometryExtensions\Triangle3d.cs" />
     <Compile Include="GeometryExtensions\Vector3dExtensions.cs" />
     <Compile Include="GeometryExtensions\ViewportExtensions.cs" />
+    <Compile Include="PolylineSimplify\RamerDouglasPeucker.cs" />
     <Compile Include="Utils\CadUtils.cs" />
     <Compile Include="Utils\DoubleExtensions.cs" />
     <Compile Include="Utils\NtsUtils.cs" />

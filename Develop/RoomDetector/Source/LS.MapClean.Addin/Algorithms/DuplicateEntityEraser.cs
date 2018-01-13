@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.Serialization.Formatters;
+using System.Security.Policy;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
@@ -75,18 +77,20 @@ namespace LS.MapClean.Addin.Algorithms
 
         public override void Check(IEnumerable<ObjectId> selectedObjectIds)
         {
-            if (!selectedObjectIds.Any())
+            if (selectedObjectIds == null || !selectedObjectIds.Any())
                 return;
             var watch = Stopwatch.StartNew();
 
             var database = Editor.Document.Database;
             using (var transaction = database.TransactionManager.StartTransaction())
             {
-                // Build a kd tree from all curve vertices.
+                //// Build a kd tree from all curve vertices.
                 Dictionary<ObjectId, CurveVertex[]> curveVertices = null;
                 CurveVertexKdTree<CurveVertex> kdTree = null;
                 BuildCurveVertexKdTree(selectedObjectIds, transaction, out curveVertices, out kdTree);
                 SearchDuplicateEntities(curveVertices, kdTree);
+                //var kdTree = BuildCurveVertexKdTree2(selectedObjectIds, transaction);
+                //SearchDuplicateEntities2(selectedObjectIds, kdTree, transaction);
             }
 
             watch.Stop();
@@ -94,11 +98,70 @@ namespace LS.MapClean.Addin.Algorithms
             //Editor.WriteMessage("\n查找重复实体花费时间{0}毫秒", elapsedMs);
         }
 
+        private CurveVertexKdTree<CurveVertex> BuildCurveVertexKdTree2(IEnumerable<ObjectId> allIds, Transaction transaction)
+        {
+            var allVertices = new List<CurveVertex>();
+            foreach (var id in allIds)
+            {
+                var points = CurveUtils.GetDistinctVertices(id, transaction);
+                if (!points.Any())
+                    continue;
+
+                var vertices = points.Select(it => new CurveVertex(it, id));
+
+                allVertices.AddRange(vertices);
+            }
+
+            var kdTree = new CurveVertexKdTree<CurveVertex>(allVertices, it => it.Point.ToArray(), ignoreZ: true);
+            return kdTree;
+        }
+
+        private void SearchDuplicateEntities2(IEnumerable<ObjectId> curveIds, CurveVertexKdTree<CurveVertex> kdTree, Transaction transaction)
+        {
+            var crossingInfos = new List<CurveCrossingInfo>();
+            var visited = new HashSet<KeyValuePair<ObjectId, ObjectId>>();
+            foreach (var id in curveIds)
+            {
+                var infos = SearchDuplicateEntities2(id, kdTree, visited, transaction);
+                if (infos.Any())
+                {
+                    crossingInfos.AddRange(infos);
+                }
+            }
+            _crossingInfos = crossingInfos;
+        }
+
+        private IEnumerable<CurveCrossingInfo> SearchDuplicateEntities2(ObjectId curveId, CurveVertexKdTree<CurveVertex> kdTree, 
+            HashSet<KeyValuePair<ObjectId, ObjectId>> visited, Transaction transaction)
+        {
+            var result = new List<CurveCrossingInfo>();
+            var curve = transaction.GetObject(curveId, OpenMode.ForRead) as Curve;
+            if(curve == null)
+                return new List<CurveCrossingInfo>();
+            var extents = curve.GeometricExtents;
+            var nearVertices = kdTree.BoxedRange(extents.MinPoint.ToArray(), extents.MaxPoint.ToArray());
+            foreach (var nearVertex in nearVertices)
+            {
+                if (nearVertex.Id == curveId ||
+                    visited.Contains(new KeyValuePair<ObjectId, ObjectId>(curveId, nearVertex.Id)) ||
+                    visited.Contains(new KeyValuePair<ObjectId, ObjectId>(nearVertex.Id, curveId)))
+                    continue;
+                var sourceVertices = CurveUtils.GetDistinctVertices(curve, transaction);
+                var targetVertices = CurveUtils.GetDistinctVertices(nearVertex.Id, transaction);
+                var identical = PolygonIncludeSearcher.AreIdenticalCoordinates(sourceVertices, targetVertices);
+                if(identical)
+                    result.Add(new CurveCrossingInfo(curveId, nearVertex.Id, sourceVertices.ToArray()));
+                visited.Add(new KeyValuePair<ObjectId, ObjectId>(curveId, nearVertex.Id));
+
+            }
+            return result;
+        }
+
+
         private void BuildCurveVertexKdTree(IEnumerable<ObjectId> allIds, Transaction transaction,
             out Dictionary<ObjectId, CurveVertex[]> curveVertices, out CurveVertexKdTree<CurveVertex> kdTree)
         {
             curveVertices = new Dictionary<ObjectId, CurveVertex[]>();
-            kdTree = null;
             var allVertices = new List<CurveVertex>();
             foreach (var id in allIds)
             {
@@ -112,7 +175,7 @@ namespace LS.MapClean.Addin.Algorithms
                 allVertices.AddRange(vertices);
             }
 
-            kdTree = new CurveVertexKdTree<CurveVertex>(allVertices, it=>it.Point, ignoreZ: true);
+            kdTree = new CurveVertexKdTree<CurveVertex>(allVertices, it=>it.Point.ToArray(), ignoreZ: true);
         }
 
         private void SearchDuplicateEntities(Dictionary<ObjectId, CurveVertex[]> curveInfos, CurveVertexKdTree<CurveVertex> kdTree)
@@ -140,7 +203,7 @@ namespace LS.MapClean.Addin.Algorithms
 
             foreach (var vertex in curveInfo.Value)
             {
-                var neighbours = kdTree.NearestNeighbours(vertex.Point, _tolerance);
+                var neighbours = kdTree.NearestNeighbours(vertex.Point.ToArray(), _tolerance);
                 neighbours = neighbours.Except(new CurveVertex[] {vertex});
 
                 // If there is no neighbour vertex, just return.

@@ -6,7 +6,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using LS.MapClean.Addin.Algorithms;
 
-namespace LS.MapClean.Addin.MapClean.Actions
+namespace LS.MapClean.Addin.MapClean
 {
     public class PolygonHoleAction : MapCleanActionBase
     {

@@ -62,8 +62,8 @@ namespace LS.MapClean.Addin.Algorithms
         private int _dimension;
         private int _parallelDepth;
         private bool _ignoreZ;
-        private Func<Point3d, Point3d, double> _sqrDist;
-        private Func<T, Point3d> _pointSelector; 
+        private Func<double[], double[], double> _sqrDist;
+        private Func<T, double[]> _pointSelector; 
         #endregion
 
         #region Constructor
@@ -74,7 +74,7 @@ namespace LS.MapClean.Addin.Algorithms
         /// <param name="vertices">The Point3d collection to fill the tree.</param>
         /// <param name="ignoreZ">A value indicating if the Z coordinate of points is ignored
         /// (as if all points were projected to the XY plane).</param>
-        public CurveVertexKdTree(IEnumerable<T> vertices, Func<T,Point3d> pointSelector, bool ignoreZ = false)
+        public CurveVertexKdTree(IEnumerable<T> vertices, Func<T, double[]> pointSelector, bool ignoreZ = false)
         {
             if (vertices == null)
                 throw new ArgumentNullException("vertices");
@@ -93,7 +93,7 @@ namespace LS.MapClean.Addin.Algorithms
             this._parallelDepth = -1;
             while (numProc >> ++this._parallelDepth > 1) ;
             var distinctVertices = vertices.Distinct().ToArray();
-            this.Root = Create(distinctVertices, 0, null, false);
+            this.Root = Create(distinctVertices, 0, null, false, 0, distinctVertices.Length-1);
         }
 
         #endregion
@@ -111,10 +111,12 @@ namespace LS.MapClean.Addin.Algorithms
 
         /// <summary>
         /// Gets the nearest neighbour.
+        /// NOTE: [Allan:] I found NearestNeighbour's performance is not good as NearestNeighbours,
+        /// So prefer to use the latter.
         /// </summary>
         /// <param name="point">The point from which search the nearest neighbour.</param>
         /// <returns>The nearest point in the collection from the specified one.</returns>
-        public T NearestNeighbour(Point3d point)
+        public T NearestNeighbour(double[] point)
         {
             return GetNeighbour(point, this.Root, this.Root.Value, double.MaxValue);
         }
@@ -125,7 +127,7 @@ namespace LS.MapClean.Addin.Algorithms
         /// <param name="point">The point from which search the nearest neighbours.</param>
         /// <param name="radius">The distance in which collect the neighbours.</param>
         /// <returns>The points which distance from the specified point is less or equal to the specified distance.</returns>
-        public IEnumerable<T> NearestNeighbours(Point3d point, double radius)
+        public IEnumerable<T> NearestNeighbours(double[] point, double radius)
         {
             var vertices = new List<T>();
             GetNeighboursAtDistance(point, radius * radius, this.Root, vertices);
@@ -138,7 +140,7 @@ namespace LS.MapClean.Addin.Algorithms
         /// <param name="point">The point from which search the nearest neighbours.</param>
         /// <param name="number">The number of points to collect.</param>
         /// <returns>The n nearest neighbours of the specified point.</returns>
-        public IEnumerable<T> NearestNeighbours(Point3d point, int number)
+        public IEnumerable<T> NearestNeighbours(double[] point, int number)
         {
             List<Tuple<double, T>> pairs = new List<Tuple<double, T>>(number);
             GetKNeighbours(point, number, this.Root, pairs);
@@ -156,12 +158,18 @@ namespace LS.MapClean.Addin.Algorithms
         /// <param name="pt1">The first corner of range.</param>
         /// <param name="pt2">The opposite corner of the range.</param>
         /// <returns>All points within the box.</returns>
-        public IEnumerable<T> BoxedRange(Point3d pt1, Point3d pt2)
+        public IEnumerable<T> BoxedRange(double[] pt1, double[] pt2)
         {
-            Point3d lowerLeft = new Point3d(
-                Math.Min(pt1.X, pt2.X), Math.Min(pt1.Y, pt2.Y), Math.Min(pt1.Z, pt2.Z));
-            Point3d upperRight = new Point3d(
-                Math.Max(pt1.X, pt2.X), Math.Max(pt1.Y, pt2.Y), Math.Max(pt1.Z, pt2.Z));
+            var lowerLeft = new double[]{
+                Math.Min(pt1[0], pt2[0]), 
+                Math.Min(pt1[1], pt2[1]), 
+                Math.Min(pt1[2], pt2[2])
+            };
+            var upperRight = new double[]{
+                Math.Max(pt1[0], pt2[0]), 
+                Math.Max(pt1[1], pt2[1]), 
+                Math.Max(pt1[2], pt2[2])
+            };
             var vertices = new List<T>();
             FindRange(lowerLeft, upperRight, this.Root, vertices);
             return vertices;
@@ -183,39 +191,45 @@ namespace LS.MapClean.Addin.Algorithms
 
         #region Private methods
 
-        private CurveVertexNode<T> Create(T[] vertices, int depth, CurveVertexNode<T> parent, bool isLeft)
+        private CurveVertexNode<T> Create(T[] vertices, int depth, CurveVertexNode<T> parent, bool isLeft,
+            int startIndex, int endIndex)
         {
             int length = vertices.Length;
-            if (length == 0) 
+            if (length == 0 || startIndex > endIndex) 
                 return null;
+
+            if(startIndex == endIndex)
+                return new CurveVertexNode<T>(vertices[startIndex]);
+
             int d = depth % this._dimension;
-            T median = vertices.QuickSelectMedian((p1, p2) => _pointSelector(p1)[d].CompareTo(_pointSelector(p2)[d]));
+            T median = vertices.QuickSelectMedian((p1, p2) => _pointSelector(p1)[d].CompareTo(_pointSelector(p2)[d]), startIndex, endIndex);
             var node = new CurveVertexNode<T>(median);
             node.Depth = depth;
             node.Parent = parent;
             node.IsLeft = isLeft;
-            int mid = length / 2;
-            int rlen = length - mid - 1;
-            var left = new T[mid];
-            var right = new T[rlen];
-            Array.Copy(vertices, 0, left, 0, mid);
-            Array.Copy(vertices, mid + 1, right, 0, rlen);
+            int mid = (startIndex + endIndex) / 2;
+            //int rlen = length - mid - 1;
+            //var left = new T[mid];
+            //var right = new T[rlen];
+            ////此处会导致比较大的内存消耗
+            //Array.Copy(vertices, 0, left, 0, mid);
+            //Array.Copy(vertices, mid + 1, right, 0, rlen);
             if (depth < this._parallelDepth)
             {
                 System.Threading.Tasks.Parallel.Invoke(
-                   () => node.LeftChild = Create(left, depth + 1, node, true),
-                   () => node.RightChild = Create(right, depth + 1, node, false)
+                   () => node.LeftChild = Create(vertices, depth + 1, node, true, startIndex, mid - 1),
+                   () => node.RightChild = Create(vertices, depth + 1, node, false, mid+1, endIndex)
                 );
             }
             else
             {
-                node.LeftChild = Create(left, depth + 1, node, true);
-                node.RightChild = Create(right, depth + 1, node, false);
+                node.LeftChild = Create(vertices, depth + 1, node, true, startIndex, mid - 1);
+                node.RightChild = Create(vertices, depth + 1, node, false, mid+1, endIndex);
             }
             return node;
         }
 
-        private T GetNeighbour(Point3d center, CurveVertexNode<T> node, T currentBest, double bestDist)
+        private T GetNeighbour(double[] center, CurveVertexNode<T> node, T currentBest, double bestDist)
         {
             if (node == null)
                 return currentBest;
@@ -246,7 +260,7 @@ namespace LS.MapClean.Addin.Algorithms
             return currentBest;
         }
 
-        private void GetNeighboursAtDistance(Point3d center, double radius, CurveVertexNode<T> node, List<T> vertices)
+        private void GetNeighboursAtDistance(double[] center, double radius, CurveVertexNode<T> node, List<T> vertices)
         {
             if (node == null) 
                 return;
@@ -278,7 +292,7 @@ namespace LS.MapClean.Addin.Algorithms
             }
         }
 
-        private void GetKNeighbours(Point3d center, int number, CurveVertexNode<T> node, List<Tuple<double, T>> pairs)
+        private void GetKNeighbours(double[] center, int number, CurveVertexNode<T> node, List<Tuple<double, T>> pairs)
         {
             if (node == null) 
                 return;
@@ -328,7 +342,7 @@ namespace LS.MapClean.Addin.Algorithms
             }
         }
 
-        private void FindRange(Point3d lowerLeft, Point3d upperRight, CurveVertexNode<T> node, List<T> vertices)
+        private void FindRange(double[] lowerLeft, double[] upperRight, CurveVertexNode<T> node, List<T> vertices)
         {
             if (node == null)
                 return;
@@ -336,15 +350,15 @@ namespace LS.MapClean.Addin.Algorithms
             var currentPoint = _pointSelector(current);
             if (_ignoreZ)
             {
-                if (currentPoint.X >= lowerLeft.X && currentPoint.X <= upperRight.X &&
-                    currentPoint.Y >= lowerLeft.Y && currentPoint.Y <= upperRight.Y)
+                if (currentPoint[0] >= lowerLeft[0] && currentPoint[0] <= upperRight[0] &&
+                    currentPoint[1] >= lowerLeft[1] && currentPoint[1] <= upperRight[1])
                     vertices.Add(current);
             }
             else
             {
-                if (currentPoint.X >= lowerLeft.X && currentPoint.X <= upperRight.X &&
-                    currentPoint.Y >= lowerLeft.Y && currentPoint.Y <= upperRight.Y &&
-                    currentPoint.Z >= lowerLeft.Z && currentPoint.Z <= upperRight.Z)
+                if (currentPoint[0] >= lowerLeft[0] && currentPoint[0] <= upperRight[0] &&
+                    currentPoint[1] >= lowerLeft[1] && currentPoint[1] <= upperRight[1] &&
+                    currentPoint[2] >= lowerLeft[2] && currentPoint[2] <= upperRight[2])
                     vertices.Add(current);
             }
 
@@ -378,7 +392,7 @@ namespace LS.MapClean.Addin.Algorithms
             GetConnexions(node.RightChild, radius, connexions);
         }
 
-        private void GetRightParentsNeighbours(Point3d center, CurveVertexNode<T> node, double radius, List<T> vertices)
+        private void GetRightParentsNeighbours(double[] center, CurveVertexNode<T> node, double radius, List<T> vertices)
         {
             CurveVertexNode<T> parent = GetRightParent(node);
             if (parent == null) return;
@@ -399,17 +413,17 @@ namespace LS.MapClean.Addin.Algorithms
             return GetRightParent(parent);
         }
 
-        private double SqrDistance2d(Point3d p1, Point3d p2)
+        private double SqrDistance2d(double[] p1, double[] p2)
         {
-            return (p1.X - p2.X) * (p1.X - p2.X) +
-                (p1.Y - p2.Y) * (p1.Y - p2.Y);
+            return (p1[0] - p2[0]) * (p1[0] - p2[0]) +
+                (p1[1] - p2[1]) * (p1[1] - p2[1]);
         }
 
-        private double SqrDistance3d(Point3d p1, Point3d p2)
+        private double SqrDistance3d(double[] p1, double[] p2)
         {
-            return (p1.X - p2.X) * (p1.X - p2.X) +
-                (p1.Y - p2.Y) * (p1.Y - p2.Y) +
-                (p1.Z - p2.Z) * (p1.Z - p2.Z);
+            return (p1[0] - p2[0]) * (p1[0] - p2[0]) +
+                (p1[1] - p2[1]) * (p1[1] - p2[1]) +
+                (p1[2] - p2[2]) * (p1[2] - p2[2]);
         }
 
         #endregion
@@ -419,14 +433,14 @@ namespace LS.MapClean.Addin.Algorithms
     {
         // Credit: Tony Tanzillo
         // http://www.theswamp.org/index.php?topic=44312.msg495808#msg495808
-        public static T QuickSelectMedian<T>(this T[] items, Comparison<T> compare)
+        public static T QuickSelectMedian<T>(this T[] items, Comparison<T> compare, int startIndex, int endIndex)
         {
-            int l = items.Length;
-            int k = l / 2;
-            if (items == null || l == 0)
+            if (items == null || items.Length == 0)
                 throw new ArgumentException("array");
-            int from = 0;
-            int to = l - 1;
+
+            int k = (startIndex + endIndex) / 2;
+            int from = startIndex;
+            int to = endIndex;
             while (from < to)
             {
                 int r = from;

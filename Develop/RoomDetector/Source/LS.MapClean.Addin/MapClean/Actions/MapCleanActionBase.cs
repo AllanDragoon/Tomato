@@ -48,6 +48,18 @@ namespace LS.MapClean.Addin.MapClean
 
         public MapClean.Status Fix(CheckResult checkResult, out List<ObjectId> resultIds)
         {
+            if (checkResult.SourceIds != null)
+            {
+                
+                foreach (var sourceId in checkResult.SourceIds)
+                {
+                    if (!sourceId.IsValid || sourceId.IsErased)
+                    {
+                        resultIds = new List<ObjectId>();
+                        return Status.Invalid;
+                    }
+                }
+            }
             using (var siwtcher = new SafeToleranceOverride())
             {
                 return FixImpl(checkResult, out resultIds);
@@ -58,10 +70,19 @@ namespace LS.MapClean.Addin.MapClean
 
         public bool CheckAndFixAll(IEnumerable<ObjectId> ids)
         {
+            var watch = Stopwatch.StartNew();
+            bool result = false;
             using (var switcher = new SafeToleranceOverride())
             {
-                return CheckAndFixAllImpl(ids);
+                result = CheckAndFixAllImpl(ids);
             }
+            watch.Stop();
+            var elapseMs = watch.ElapsedMilliseconds;
+            if (Document != null)
+            {
+                Document.Editor.WriteMessage("\n本次检查用时{0}毫秒\n", elapseMs);
+            }
+            return result;
         }
 
         protected virtual bool CheckAndFixAllImpl(IEnumerable<ObjectId> ids)

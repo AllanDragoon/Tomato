@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 using System.Text;
 using Autodesk.AutoCAD.ApplicationServices;
@@ -56,7 +55,7 @@ namespace LS.MapClean.Addin.Main
             return true;
         }
 
-        private static IEnumerable<Entity> GetApartmentContour()
+        private static IEnumerable<Entity> GetApartmentContour(IEnumerable<ObjectId> linearIds)
         {
             throw new NotImplementedException();
         }

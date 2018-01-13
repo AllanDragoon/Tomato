@@ -50,15 +50,20 @@ namespace LS.MapClean.Addin.Algorithms
                 var danglingVertices = danglingSearcher.Search();
 
                 // Traverse all dangling vertices and search undershoots
-                _underShootInfos = GetUnderShootIntersections(danglingVertices, transaction, _tolerance);
-                
+                //_underShootInfos = GetUnderShootIntersections(danglingVertices, transaction, _tolerance);
+                _underShootInfos = GetUnderShootIntersections2(selectedObjectIds, danglingVertices, _tolerance, transaction);
+
                 transaction.Commit();
             }
 
             // the code that you want to measure comes here
-            watch.Stop();
-            var elapsedMs = watch.ElapsedMilliseconds;
+            //watch.Stop();
+            //var elapsedMs = watch.ElapsedMilliseconds;
             //Editor.WriteMessage("\n查找未及点花费时间{0}毫秒", elapsedMs);
+            //foreach (var intersectionInfo in _underShootInfos)
+            //{
+            //    Editor.WriteMessage("\n{0}\n", intersectionInfo.IntersectPoint.ToString());
+            //}
         }
 
         public Dictionary<ObjectId, List<ObjectId>> Fix(bool breakTarget)
@@ -128,6 +133,212 @@ namespace LS.MapClean.Addin.Algorithms
                 { 
                     result.Add(info);
                 }
+            }
+            return result;
+        }
+
+        private IEnumerable<IntersectionInfo> GetUnderShootIntersections2(IEnumerable<ObjectId> selectedObjectIds,
+            IEnumerable<CurveVertex> danglingVertices, double tolerance, Transaction transaction)
+        {
+            if(danglingVertices == null || !danglingVertices.Any())
+                return new List<IntersectionInfo>();
+
+            var intersectMap = new Dictionary<CurveVertex, List<CurveVertex>>();
+            var desireExtendTypes = new Dictionary<CurveVertex, ExtendType>();
+            foreach (var vertex in danglingVertices)
+            {
+                var curve = transaction.GetObject(vertex.Id, OpenMode.ForRead);
+                var desiredExtend = CurveUtils.GetExtendType((Curve)curve, vertex.Point);
+                desireExtendTypes[vertex] = desiredExtend;
+            }
+
+            // 创建一个kdtree
+            var kdTree = new CurveVertexKdTree<CurveVertex>(danglingVertices, it => it.Point.ToArray(), ignoreZ: true);
+            foreach (var objectId in selectedObjectIds)
+            {
+                var curve = transaction.GetObject(objectId, OpenMode.ForRead) as Curve;
+                if (curve == null)
+                    continue;
+
+                // 预检
+                var curveExtents = curve.GeometricExtents;
+                var vertices = kdTree.BoxedRange(curveExtents.MinPoint.ToArray(), curveExtents.MaxPoint.ToArray());
+                if (vertices == null || !vertices.Any())
+                    continue;
+
+                var segments = CurveUtils.GetSegment2dsOfCurve(curve, transaction);
+                var segmentsForCollision = segments.Select(it => new CurveSegmentForCollision()
+                {
+                    LineSegment = it,
+                    EntityId = objectId,
+                    MiniBoundingBox = CurveSegmentForCollision.CreateCollisionBoundingBox(it, tolerance)
+                });
+                foreach (var curveSegmentForCollision in segmentsForCollision)
+                {
+                    var extents = curveSegmentForCollision.GetExtents();
+                    if (extents == null)
+                        continue;
+                    var minPoint = extents.Value.MinPoint;
+                    var maxPoint = extents.Value.MaxPoint;
+                    var nearVertices = kdTree.BoxedRange(new double[] { minPoint.X, minPoint.Y, 0.0 },
+                        new double[] { maxPoint.X, maxPoint.Y, 0.0 });
+
+                    if (!nearVertices.Any())
+                        continue;
+
+                    var boundingBox = curveSegmentForCollision.MiniBoundingBox.ToList();
+                    boundingBox.Add(curveSegmentForCollision.MiniBoundingBox[0]);
+                    foreach (var curveVertex in nearVertices)
+                    {
+                        if (!ComputerGraphics.IsInPolygon(boundingBox.ToArray(), new Point2d(curveVertex.Point.X, curveVertex.Point.Y), 4))
+                            continue;
+
+                        var danglingCurve = (Curve)transaction.GetObject(curveVertex.Id, OpenMode.ForRead);
+                        var danglingSegment = GetExtendLineSegment(danglingCurve, curveVertex.Point, transaction);
+                        var danglineLine = new Line2d(danglingSegment.StartPoint, danglingSegment.EndPoint);
+                        var intersectPoints = danglineLine.IntersectWith(curveSegmentForCollision.LineSegment);
+                        if (intersectPoints == null || intersectPoints.Length <= 0)
+                            continue;
+
+                        var intersectPoint2D = intersectPoints[0];
+                        var param = danglingSegment.GetParameterOf(intersectPoint2D);
+                        var extendType = CurveIntersectUtils.ParamToExtendTypeForLine(param);
+                        if (extendType != desireExtendTypes[curveVertex])
+                            continue;
+
+                        var intersectPoint = new Point3d(intersectPoint2D.X, intersectPoint2D.Y, 0);
+                        var dist = (intersectPoint - curveVertex.Point).Length;
+                        if (dist.Larger(tolerance))
+                            continue;
+
+                        List<CurveVertex> intersectList;
+                        intersectMap.TryGetValue(curveVertex, out intersectList);
+                        if (intersectList == null)
+                        {
+                            intersectList = new List<CurveVertex>();
+                            intersectMap[curveVertex] = intersectList;
+                        }
+
+                        intersectList.Add(new CurveVertex(intersectPoint, curveSegmentForCollision.EntityId));
+                    }
+                }
+            }
+
+            // 分析交点
+            var result = new List<IntersectionInfo>();
+            foreach (var pair in intersectMap)
+            {
+                var vertex = pair.Key;
+                var extendVertices = pair.Value;
+                var nearest = extendVertices[0];
+                var nearsetDist = (nearest.Point - vertex.Point).Length;
+                for (int i = 1; i < extendVertices.Count; i++)
+                {
+                    var dist = (extendVertices[i].Point - vertex.Point).Length;
+                    if (dist < nearsetDist)
+                    {
+                        nearsetDist = dist;
+                        nearest = extendVertices[i];
+                    }
+                }
+
+                result.Add(new IntersectionInfo(vertex.Id, desireExtendTypes[vertex], nearest.Id, ExtendType.None, nearest.Point));
+            }
+            return result;
+        }
+
+        private LineSegment2d GetExtendLineSegment(Curve curve, Point3d point, Transaction transaction)
+        {
+            LineSegment2d result = null;
+            var line = curve as Line;
+            var polyline = curve as Polyline;
+            var polyline2d = curve as Polyline2d;
+            if (polyline != null)
+            {
+                result = GetExtendLineSegmentFromPolyLine(polyline, point);
+            }
+            else if (polyline2d != null)
+            {
+                result = GetExtendLineSegmentFromPolyline2d(polyline2d, point, transaction);
+            }
+            else if(line != null)
+            {
+                result = GetExtendLineSegmentFromLine(line, point);
+            }
+            return result;
+        }
+
+        private static LineSegment2d GetExtendLineSegmentFromLine(Line line, Point3d point)
+        {
+            LineSegment2d result = null;
+            var point2D = new Point2d(point.X, point.Y);
+            if (line.EndPoint == point)
+            {
+                var startPoint = line.StartPoint;
+                var startPoint2D = new Point2d(startPoint.X, startPoint.Y);
+                result = new LineSegment2d(startPoint2D, point2D);
+            }
+            else
+            {
+                var endPoint = line.EndPoint;
+                var endPoint2D = new Point2d(endPoint.X, endPoint.Y);
+                result = new LineSegment2d(point2D, endPoint2D);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Cut out a line from polyline by point.
+        /// </summary>
+        /// <param name="polyline"></param>
+        /// <param name="point"></param>
+        /// <param name="tolerance"></param>
+        /// <returns></returns>
+        private static LineSegment2d GetExtendLineSegmentFromPolyLine(Polyline polyline, Point3d point)
+        {
+            LineSegment2d result = null;
+            var point2D = new Point2d(point.X, point.Y);
+            if (polyline.EndPoint == point)
+            {
+                var startPoint = polyline.GetPoint3dAt(polyline.NumberOfVertices - 2);
+                var startPoint2D = new Point2d(startPoint.X, startPoint.Y);
+               
+                result = new LineSegment2d(startPoint2D, point2D);
+            }
+            else
+            {
+                var endPoint = polyline.GetPoint3dAt(1);
+                var endPoint2D = new Point2d(endPoint.X, endPoint.Y);
+                
+                result = new LineSegment2d(point2D, endPoint2D);
+            }
+            return result;
+        }
+
+        private static LineSegment2d GetExtendLineSegmentFromPolyline2d(Polyline2d polyline2d, Point3d point, Transaction transaction)
+        {
+            LineSegment2d result = null;
+            var vertices = new List<Vertex2d>();
+            foreach (ObjectId objId in polyline2d)
+            {
+                var vertex = transaction.GetObject(objId, OpenMode.ForRead) as Vertex2d;
+                vertices.Add(vertex);
+            }
+
+            var point2D = new Point2d(point.X, point.Y);
+            if (polyline2d.EndPoint == point)
+            {
+                var startPoint = vertices[vertices.Count - 2].Position;
+                var startPoint2D = new Point2d(startPoint.X, startPoint.Y);
+                
+                result = new LineSegment2d(startPoint2D, point2D);
+            }
+            else
+            {
+                var endPoint = vertices[1].Position;
+                var endPoint2D = new Point2d(endPoint.X, endPoint.Y);
+                
+                result = new LineSegment2d(point2D, endPoint2D);
             }
             return result;
         }

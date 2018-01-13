@@ -26,6 +26,7 @@ namespace LS.MapClean.Addin.MapClean
         SmallPolygon,
         UnclosedPolygon,
         IntersectPolygon,
+        DuplicatePolygon,
         SmallPolygonGap,
         SelfIntersect,
         PolygonHole,
@@ -36,7 +37,11 @@ namespace LS.MapClean.Addin.MapClean
         SelfIntersect2,
         FindDangling,
         OverlapPolygon,
-        AntiClockwisePolygon
+        AntiClockwisePolygon,
+        FindIslandPolygon,
+        ArcSegment,
+        RectifyPointDeviation,
+        SharpCornerPolygon
     }
 
     public static class ActionTypeUtils
@@ -47,7 +52,7 @@ namespace LS.MapClean.Addin.MapClean
             switch (actionType)
             {
                 case ActionType.NoneZeroElevation:
-                    result = "高程不为0对象检查";
+                    result = "检查高程不为0对象";
                     break;
                 case ActionType.DuplicateVertexPline:
                     result = "多段线重点检查";
@@ -89,7 +94,10 @@ namespace LS.MapClean.Addin.MapClean
                     result = "非闭合多段线";
                     break;
                 case ActionType.IntersectPolygon:
-                    result = "重叠多边形";
+                    result = "相交多边形";
+                    break;
+                case ActionType.DuplicatePolygon:
+                    result = "重复多边形";
                     break;
                 case ActionType.SmallPolygonGap:
                     result = "地块边界缝隙";
@@ -117,6 +125,18 @@ namespace LS.MapClean.Addin.MapClean
                     break;
                 case ActionType.AnnotationOverlap:
                     result = "地块标注重叠";
+                    break;
+                case ActionType.FindIslandPolygon:
+                    result = "未处理孔洞";
+                    break;
+                case ActionType.ArcSegment:
+                    result = "弧段或弧形对象";
+                    break;
+                case ActionType.RectifyPointDeviation:
+                    result = "修正顶点误差";
+                    break;
+                case ActionType.SharpCornerPolygon:
+                    result = "狭长角多边形";
                     break;
             }
             return result;

@@ -6,7 +6,7 @@ namespace TopologyTools.Utils
     public class ToleranceOverrule : IDisposable
     {
         private Tolerance _mOldTolerance;
-        private const double SaferTolerance = 1E-5;
+        private const double SaferTolerance = 1E-4;
 
         public ToleranceOverrule(double? tolerance)
         {

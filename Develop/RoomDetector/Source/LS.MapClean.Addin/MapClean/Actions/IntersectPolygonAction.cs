@@ -34,7 +34,8 @@ namespace LS.MapClean.Addin.MapClean
             //    var checkResult = new IntersectPolygonCheckResult(overlap);
             //    result.Add(checkResult);
             //}
-            var algorithm = new PolygonIntersectSearcher(Document.Editor);
+            var algorithm = new PolygonIntersectWithoutHoleSearcher(Document.Editor);
+
             algorithm.Check(selectedObjectIds);
             var intersects = algorithm.Intersects;
             if (intersects == null)
@@ -45,6 +46,7 @@ namespace LS.MapClean.Addin.MapClean
                 var checkResult = new IntersectPolygonCheckResult(polygonIntersect);
                 result.Add(checkResult);
             }
+
             return result;
         }
 

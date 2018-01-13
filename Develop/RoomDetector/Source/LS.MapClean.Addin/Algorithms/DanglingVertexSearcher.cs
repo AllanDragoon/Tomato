@@ -228,7 +228,7 @@ namespace LS.MapClean.Addin.Algorithms
                 curveVertices[id] = vertices.ToArray();
                 allVertices.AddRange(vertices);
             }
-            kdTree = new CurveVertexKdTree<CurveVertex>(allVertices, it=>it.Point, ignoreZ: true);
+            kdTree = new CurveVertexKdTree<CurveVertex>(allVertices, it=>it.Point.ToArray(), ignoreZ: true);
         }
 
         private Point3d[] GetDistinctPoints(Point3d[] points)
@@ -254,7 +254,7 @@ namespace LS.MapClean.Addin.Algorithms
             bool isDangling = true;
 
             // Get entities which vertex is on.
-            var neighbors = kdTree.NearestNeighbours(vertex.Point, radius: 0.1);
+            var neighbors = kdTree.NearestNeighbours(vertex.Point.ToArray(), radius: 0.1);
             var adjacentIds = neighbors.Select(it => it.Id);
 
             foreach (ObjectId adjacentId in adjacentIds)

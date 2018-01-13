@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
-using System.Text;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 using LS.MapClean.Addin.Utils;
@@ -100,7 +98,6 @@ namespace LS.MapClean.Addin.Algorithms
 
             // For self intersection.
             var vertexIntersects = new HashSet<CurveVertex>();
-
             // Traverse bsp tree to search real intersection
             List<IntersectionInfo> intersections = new List<IntersectionInfo>();
             SearchRealIntersectionsOfNode(_bspTree.Root, intersections, vertexIntersects, includeInline);
@@ -242,18 +239,26 @@ namespace LS.MapClean.Addin.Algorithms
                     bool checkStart = (segments[i].StartSplitInfos == null);
                     if (segments[i].StartSplitInfos != null && segments[i].StartSplitInfos.Length > 0)
                     {
-                        checkStart = !segments[i].StartSplitInfos[0].IsSplitted;
+                        checkStart = !IsSegmentSplited(segments[i].StartSplitInfos);
                     }
 
                     // Original point if segments[i].StartSplitInfo is null.
                     if (checkStart)
                     {
                         var startParam = nextLineSeg.GetParameterOf(startPoint);
-                        if ((startParam.EqualsWithTolerance(0.0) || startParam.EqualsWithTolerance(1.0))
-                            && i < j && segments[i].EntityId != segments[j].EntityId)
+                        if ((startParam.EqualsWithTolerance(0.0) || startParam.EqualsWithTolerance(1.0)) && i < j )
                         {
-                            result.Add(new IntersectionInfo(segments[i].EntityId, ExtendType.None,
-                                segments[j].EntityId, ExtendType.None, new Point3d(startPoint.X, startPoint.Y, 0.0)));
+                            if (segments[i].EntityId != segments[j].EntityId)
+                            {
+                                result.Add(new IntersectionInfo(segments[i].EntityId, ExtendType.None,
+                                    segments[j].EntityId, ExtendType.None, new Point3d(startPoint.X, startPoint.Y, 0.0)));
+                            }
+                            else if (nextLineSeg.StartPoint == endPoint || nextLineSeg.EndPoint == endPoint)
+                            {
+                                // 如果两个线段完全重合，并且Id相同，那么自相交
+                                result.Add(new IntersectionInfo(segments[i].EntityId, ExtendType.None,
+                                    segments[j].EntityId, ExtendType.None, new Point3d(startPoint.X, startPoint.Y, 0.0)));
+                            }
                         }
                         else if (startParam.Larger(0.0) && startParam.Smaller(1.0))
                         {
@@ -265,18 +270,26 @@ namespace LS.MapClean.Addin.Algorithms
                     bool checkEnd = (segments[i].EndSplitInfos == null);
                     if (segments[i].EndSplitInfos != null && segments[i].EndSplitInfos.Length > 0)
                     {
-                        checkStart = !segments[i].EndSplitInfos[0].IsSplitted;
+                        checkEnd = !IsSegmentSplited(segments[i].EndSplitInfos);
                     }
 
                     // Original point if segments[i].EndSplitInfo is null.
-                    if (segments[i].EndSplitInfos == null)
+                    if (checkEnd)
                     {
                         var endParam = nextLineSeg.GetParameterOf(endPoint);
-                        if ((endParam.EqualsWithTolerance(0.0) || endParam.EqualsWithTolerance(1.0))
-                            && i < j && segments[i].EntityId != segments[j].EntityId)
+                        if ((endParam.EqualsWithTolerance(0.0) || endParam.EqualsWithTolerance(1.0)) && i < j)
                         {
-                            result.Add(new IntersectionInfo(segments[i].EntityId, ExtendType.None,
-                                segments[j].EntityId, ExtendType.None, new Point3d(endPoint.X, endPoint.Y, 0.0)));
+                            if (segments[i].EntityId != segments[j].EntityId)
+                            {
+                                result.Add(new IntersectionInfo(segments[i].EntityId, ExtendType.None,
+                                    segments[j].EntityId, ExtendType.None, new Point3d(endPoint.X, endPoint.Y, 0.0)));
+                            }
+                            else if (nextLineSeg.StartPoint == startPoint || nextLineSeg.EndPoint == startPoint)
+                            {
+                                // 如果两个线段完全重合，并且Id相同，那么自相交
+                                result.Add(new IntersectionInfo(segments[i].EntityId, ExtendType.None,
+                                    segments[j].EntityId, ExtendType.None, new Point3d(endPoint.X, endPoint.Y, 0.0)));
+                            }
                         }
                         else if (endParam.Larger(0.0) && endParam.Smaller(1.0))
                         {
@@ -289,81 +302,107 @@ namespace LS.MapClean.Addin.Algorithms
             return result;
         }
 
-        private IEnumerable<CurveCrossingInfo> GetCrossingInfosFromIntersections(List<IntersectionInfo> infos)
+        private bool IsSegmentSplited(IEnumerable<BspSplitInfo> splitInfos)
         {
-            //var result = new List<CurveCrossingInfo>();
-            //var currentInfos = infos;
-            //while (currentInfos.Any())
-            //{
-            //    var info = currentInfos.First();
-            //    var group = currentInfos.Where(it =>
-            //        (it.SourceId == info.SourceId && it.TargetId == info.TargetId) ||
-            //        (it.TargetId == info.SourceId && it.SourceId == info.TargetId));
-               
-            //    var points = new HashSet<Point3d>();
-            //    foreach (var intersection in group)
-            //    {
-            //        points.Add(intersection.IntersectPoint);
-            //    }
-
-            //    if (points.Count > 0)
-            //    {
-            //        var crossingInfo = new CurveCrossingInfo(info.SourceId, info.TargetId, points.ToArray());
-            //        result.Add(crossingInfo);
-            //    }
-            //    currentInfos = currentInfos.Except(group);
-            //}
-            //return result;
-
-            var result = new List<CurveCrossingInfo>();
-            var sourceIdGroups = infos.GroupBy(it => it.SourceId);
-            HashSet<KeyValuePair<ObjectId, ObjectId>> visited = new HashSet<KeyValuePair<ObjectId, ObjectId>>();
-            foreach (var sourceIdGroup in sourceIdGroups)
+            var splited = false;
+            if (splitInfos != null)
             {
-                var subSourceIdGroups = sourceIdGroup.GroupBy(it => it.TargetId);
-                foreach (var subSourceIdGroup in subSourceIdGroups)
+                foreach (var bspSplitInfo in splitInfos)
                 {
-                    if (visited.Contains(new KeyValuePair<ObjectId, ObjectId>(subSourceIdGroup.Key, sourceIdGroup.Key)))
-                        continue;
-
-                    var points = new List<Point3d>();
-                    foreach (var intersection in subSourceIdGroup)
+                    if (bspSplitInfo.IsSplitted)
                     {
-                        if (points.Contains(intersection.IntersectPoint))
-                            continue;
-
-                        points.Add(intersection.IntersectPoint);
+                        splited = true;
+                        break;
                     }
-
-                    // Search the target group by TargetId.
-                    var targetGroup = sourceIdGroups.FirstOrDefault(it => it.Key == subSourceIdGroup.Key);
-                    if (targetGroup != null)
-                    {
-                        // Continue group by SourceId (the TargetId in targetIdGroups)
-                        var subTargetGroups = targetGroup.GroupBy(it => it.TargetId);
-                        var subTargetGroup = subTargetGroups.FirstOrDefault(it => it.Key == sourceIdGroup.Key);
-                        if (subTargetGroup != null)
-                        {
-                            foreach (var intersection in subTargetGroup)
-                            {
-                                if (points.Contains(intersection.IntersectPoint))
-                                    continue;
-                                points.Add(intersection.IntersectPoint);
-                            }
-                        }
-                    }
-
-                    if (points.Count > 0)
-                    {
-                        var crossingInfo = new CurveCrossingInfo(sourceIdGroup.Key, subSourceIdGroup.Key, points.ToArray());
-                        result.Add(crossingInfo);
-                    }
-
-                    visited.Add(new KeyValuePair<ObjectId, ObjectId>(sourceIdGroup.Key, subSourceIdGroup.Key));
                 }
             }
+            return splited;
+        }
 
+        private IEnumerable<CurveCrossingInfo> GetCrossingInfosFromIntersections(List<IntersectionInfo> infos)
+        {
+            var result = new List<CurveCrossingInfo>();
+
+            var dictionary = new Dictionary<KeyValuePair<ObjectId, ObjectId>, List<Point3d>>();
+            foreach (var info in infos)
+            {
+                var pair1 = new KeyValuePair<ObjectId, ObjectId>(info.SourceId, info.TargetId);
+                var pair2 = new KeyValuePair<ObjectId, ObjectId>(info.TargetId, info.SourceId);
+                if (dictionary.ContainsKey(pair1))
+                {
+                    var val = dictionary[pair1];
+                    if(!val.Contains(info.IntersectPoint))
+                        val.Add(info.IntersectPoint);
+                }
+                else if (dictionary.ContainsKey(pair2))
+                {
+                    var val = dictionary[pair2];
+                    if (!val.Contains(info.IntersectPoint))
+                        val.Add(info.IntersectPoint);
+                }
+                else
+                {
+                    var list = new List<Point3d>();
+                    list.Add(info.IntersectPoint);
+                    dictionary[pair1] = list;
+                }
+            }
+            foreach (var pair in dictionary)
+            {
+                var crossingInfo = new CurveCrossingInfo(pair.Key.Key, pair.Key.Value, pair.Value.ToArray());
+                result.Add(crossingInfo);
+            }
             return result;
+            
+            //var watch = Stopwatch.StartNew();
+            //var sourceIdGroups = infos.GroupBy(it => it.SourceId);
+            //HashSet<KeyValuePair<ObjectId, ObjectId>> visited = new HashSet<KeyValuePair<ObjectId, ObjectId>>();
+            //foreach (var sourceIdGroup in sourceIdGroups)
+            //{
+            //    var subSourceIdGroups = sourceIdGroup.GroupBy(it => it.TargetId);
+            //    foreach (var subSourceIdGroup in subSourceIdGroups)
+            //    {
+            //        if (visited.Contains(new KeyValuePair<ObjectId, ObjectId>(subSourceIdGroup.Key, sourceIdGroup.Key)))
+            //            continue;
+
+            //        var points = new List<Point3d>();
+            //        foreach (var intersection in subSourceIdGroup)
+            //        {
+            //            if (points.Contains(intersection.IntersectPoint))
+            //                continue;
+
+            //            points.Add(intersection.IntersectPoint);
+            //        }
+
+            //        // Search the target group by TargetId.
+            //        var targetGroup = sourceIdGroups.FirstOrDefault(it => it.Key == subSourceIdGroup.Key);
+            //        if (targetGroup != null)
+            //        {
+            //            // Continue group by SourceId (the TargetId in targetIdGroups)
+            //            var subTargetGroups = targetGroup.GroupBy(it => it.TargetId);
+            //            var subTargetGroup = subTargetGroups.FirstOrDefault(it => it.Key == sourceIdGroup.Key);
+            //            if (subTargetGroup != null)
+            //            {
+            //                foreach (var intersection in subTargetGroup)
+            //                {
+            //                    if (points.Contains(intersection.IntersectPoint))
+            //                        continue;
+            //                    points.Add(intersection.IntersectPoint);
+            //                }
+            //            }
+            //        }
+
+            //        if (points.Count > 0)
+            //        {
+            //            var crossingInfo = new CurveCrossingInfo(sourceIdGroup.Key, subSourceIdGroup.Key, points.ToArray());
+            //            result.Add(crossingInfo);
+            //        }
+
+            //        visited.Add(new KeyValuePair<ObjectId, ObjectId>(sourceIdGroup.Key, subSourceIdGroup.Key));
+            //    }
+            //}
+
+            //return result;
         }
 
         private IEnumerable<CurveCrossingInfo> FilterCrossInfos(IEnumerable<CurveCrossingInfo> crossInfos, out IEnumerable<CurveCrossingInfo> duplicateEntities )
@@ -390,9 +429,15 @@ namespace LS.MapClean.Addin.Algorithms
                 foreach (var point3D in curveCrossingInfo.IntersectPoints)
                 {
                     // Whether point3D is end point of each cuve
-                    // If sourcePoints.Length is 1 or 0, means it's a loop, loop need to be splitted.
-                    if (sourcePoints.Length >= 2 && sourcePoints.Contains(point3D) && 
-                        targetPoints.Length >= 2 && targetPoints.Contains(point3D))
+
+                    //// If sourcePoints.Length is 1 or 0, means it's a loop, loop need to be splitted.
+                    //if (sourcePoints.Length >= 2 && sourcePoints.Contains(point3D) && 
+                    //    targetPoints.Length >= 2 && targetPoints.Contains(point3D))
+                    //    continue;
+
+                    // If curveCrossingInfo.SourceId == curveCrossingInfo.TargetId, it's a self intersection.
+                    if (sourcePoints.Contains(point3D) && targetPoints.Contains(point3D) &&
+                        curveCrossingInfo.SourceId != curveCrossingInfo.TargetId)
                         continue;
 
                     points.Add(point3D);

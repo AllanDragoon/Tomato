@@ -10,9 +10,10 @@ using System.Windows;
 [assembly: AssemblyTitle("LS.MapClean.Addin")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("HP")]
-[assembly: AssemblyProduct("LS.MapClean.Addin")]
-[assembly: AssemblyCopyright("Copyright © HP 2015")]
+
+[assembly: AssemblyCompany("上海飞未信息技术有限公司")]
+[assembly: AssemblyProduct("")]
+[assembly: AssemblyCopyright("版权所有 © 2015 上海飞未信息技术有限公司")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

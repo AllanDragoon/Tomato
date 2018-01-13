@@ -30,7 +30,7 @@ namespace LS.MapClean.Addin.Algorithms
 
             var precision = 0.000001;
             // First we need to make sure all intersections are vertices of polygon
-            var missingVertexSearcher = new MissingVertexSearcher(Editor, precision);
+            var missingVertexSearcher = new MissingVertexSearcherQuadTree(Editor);
             missingVertexSearcher.Check(selectedObjectIds);
             if (missingVertexSearcher.MissingVertexInfos.Any())
             {
@@ -105,7 +105,7 @@ namespace LS.MapClean.Addin.Algorithms
             var cpr = new Clipper();
             cpr.AddPaths(subject, PolyType.ptSubject, true);
             cpr.AddPaths(clipper, PolyType.ptClip, true);
-            cpr.Execute(ClipType.ctDifference, result, PolyFillType.pftEvenOdd, PolyFillType.pftEvenOdd);
+            cpr.Execute(ClipType.ctXor, result, PolyFillType.pftNonZero, PolyFillType.pftNonZero);
             if (result.Count <= 0)
             {
                 return;

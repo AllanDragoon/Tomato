@@ -68,16 +68,6 @@ namespace LS.MapClean.Addin.ViewModel
             _service.Recheck();
         }
 
-        public ICommand NewCheckCommand
-        {
-            get { return new RelayCommand(DoNewCheck);}
-        }
-
-        private void DoNewCheck()
-        {
-            _service.ContinueCheck();
-        }
-
         public ICommand SettingsCommand
         {
             get { return new RelayCommand(DoSettings, CanSettings);}

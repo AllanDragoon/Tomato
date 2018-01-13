@@ -1,11 +1,11 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
-using LS.MapClean.Addin.Utils;
 using QuickGraph;
+using QuickGraph.Algorithms;
 using QuickGraph.Algorithms.ConnectedComponents;
 using QuickGraph.Algorithms.Observers;
 using QuickGraph.Algorithms.Search;
@@ -40,6 +40,25 @@ namespace LS.MapClean.Addin.Algorithms
             var right = (CurveVertex)obj;
             var result = Point.IsEqualTo(right.Point) && Id == right.Id;
             return result;
+        }
+
+        public override int GetHashCode()
+        {
+            //http://stackoverflow.com/questions/7813687/right-way-to-implement-gethashcode-for-this-struct
+            unchecked
+            {
+                // 我们需要考虑精度的影响。
+                var x = (int)(Point.X);
+                var y = (int)(Point.Y);
+
+                var hash = 17;
+
+                // Suitable nullity checks etc, of course :)
+                hash = (23 * hash) + x.GetHashCode();
+                hash = (23 * hash) + y.GetHashCode();
+                hash = (23*hash) + Id.GetHashCode();
+                return hash;
+            }
         }
 
         // Override operator == and !=
@@ -189,6 +208,104 @@ namespace LS.MapClean.Addin.Algorithms
             return result;
         }
 
+        /// <summary>
+        /// Partition the graph which are not connected with each other.
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<IEnumerable<ObjectId>> PartitionGraph()
+        {
+            var result = new List<HashSet<ObjectId>>();
+            var vertexGroups = PartitionGraphVertices();
+            if (!vertexGroups.Any())
+                return result;
+
+            foreach (var vertexGroup in vertexGroups)
+            {
+                var set = new HashSet<ObjectId>();
+                foreach (var curveVertex in vertexGroup)
+                {
+                    set.Add(curveVertex.Id);
+                }
+                result.Add(set);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Partition the graph which are not connected with each other.
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<IEnumerable<CurveVertex>> PartitionGraphVertices()
+        {
+            // https://quickgraph.codeplex.com/wikipage?title=Topological%20Sort&referringTitle=Documentation
+            // This algorithm creates an linear ordering of the vertices (or edges) in a Directed Acyclic Graph 
+            // such that each vertex comes before its outbound vertices. 
+            var result = new List<List<CurveVertex>>();
+            // create algorithm
+            var dfs = new DepthFirstSearchAlgorithm<CurveVertex, SEdge<CurveVertex>>(_graph);
+            _observer = new VertexPredecessorRecorderObserver<CurveVertex, SEdge<CurveVertex>>();
+            using (var attacher = _observer.Attach(dfs))
+            {
+                //do the search
+                dfs.Compute();
+            }
+            var visited = new HashSet<CurveVertex>();
+            foreach (var vertex in _graph.Vertices)
+            {
+                if (visited.Contains(vertex))
+                    continue;
+                var currentList = new List<CurveVertex>();
+                currentList.Add(vertex);
+                visited.Add(vertex);
+
+                // 这里用递归调用崩溃
+                var connected = GetConnectedVertices(vertex, _observer.VertexPredecessors, currentList, visited);
+                while (connected.Any())
+                {
+                    var newConnected = new List<CurveVertex>();
+                    foreach (var curveVertex in connected)
+                    {
+                        var tempConnected = GetConnectedVertices(curveVertex, _observer.VertexPredecessors, currentList, visited);
+                        newConnected.AddRange(tempConnected);
+                    }
+                    connected = newConnected;
+                }
+                result.Add(currentList);
+            }
+            return result;
+        }
+
+        private IEnumerable<CurveVertex> GetConnectedVertices(CurveVertex vertex,
+            IDictionary<CurveVertex, SEdge<CurveVertex>> vertexPredecessors,
+            List<CurveVertex> connectedVertices, HashSet<CurveVertex> visited)
+        {
+            var result = new List<CurveVertex>();
+            IEnumerable<SEdge<CurveVertex>> outEdges = null;
+            _graph.TryGetOutEdges(vertex, out outEdges);
+            if (outEdges != null)
+            {
+                foreach (var outEdge in outEdges)
+                {
+                    if (visited.Contains(outEdge.Target))
+                        continue;
+
+                    connectedVertices.Add(outEdge.Target);
+                    visited.Add(outEdge.Target);
+                    result.Add(outEdge.Target);
+                }
+            }
+
+            SEdge<CurveVertex> inEdge;
+            vertexPredecessors.TryGetValue(vertex, out inEdge);
+            if (!inEdge.Equals(default(SEdge<CurveVertex>)) && !visited.Contains(inEdge.Source))
+            {
+                connectedVertices.Add(inEdge.Source);
+                visited.Add(inEdge.Source);
+                result.Add(inEdge.Source);
+            }
+            return result;
+        }
+        
         CurveVertex? GetRootVertex(IDictionary<CurveVertex, SEdge<CurveVertex>> predecessors, CurveVertex vertex)
         {
             CurveVertex? target = vertex;
@@ -229,7 +346,7 @@ namespace LS.MapClean.Addin.Algorithms
                 allVertices.AddRange(vertices);
             }
 
-            kdTree = new CurveVertexKdTree<CurveVertex>(allVertices, it=>it.Point, ignoreZ:true);
+            kdTree = new CurveVertexKdTree<CurveVertex>(allVertices, it=>it.Point.ToArray(), ignoreZ:true);
         }
 
         private IEnumerable<SEdge<CurveVertex>> GetEdges(IEnumerable<ObjectId> allIds, HashSet<ObjectId> visitedIds, Transaction transaction)
@@ -333,7 +450,7 @@ namespace LS.MapClean.Addin.Algorithms
                 if (sourceVertex != null && sourceVertex.Value.Point.IsEqualTo(vertex.Point))
                     continue;
 
-                var adjacentVertices = kdTree.NearestNeighbours(vertex.Point, radius: 0.1);
+                var adjacentVertices = kdTree.NearestNeighbours(vertex.Point.ToArray(), radius: 0.1);
                 var adjacentIds = adjacentVertices.Select(it => it.Id);
                 foreach (ObjectId adjacentId in adjacentIds)
                 {

@@ -484,7 +484,7 @@ namespace LS.MapClean.Addin.Utils
                     {
                         var layerTableRecord = (LayerTableRecord)trans.GetObject(layerId, OpenMode.ForRead);
                         // If layer is off, continue.
-                        if (layerTableRecord.IsOff)
+                        if (layerTableRecord.IsOff || layerTableRecord.IsFrozen)
                             continue;
                         layers.Add(layerTableRecord.Id);
                     }
@@ -495,7 +495,7 @@ namespace LS.MapClean.Addin.Utils
                     {
                         var layerTableRecord = (LayerTableRecord)trans.GetObject(lt[name], OpenMode.ForRead);
                         // If layer is off, continue.
-                        if (layerTableRecord.IsOff)
+                        if (layerTableRecord.IsOff || layerTableRecord.IsFrozen)
                             continue;
                         layers.Add(layerTableRecord.Id);
                     }

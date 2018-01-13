@@ -125,19 +125,30 @@ namespace LS.MapClean.Addin.MapClean.Actions2
 
         protected override IEnumerable<CheckResult> CheckImpl(IEnumerable<ObjectId> selectedObjectIds)
         {
-            var results = new List<MissingVertexInPolygonCheckResult>();
-            var editor = Document.Editor;
-            var handler = new MissingVertexInPolygonHandler(editor);
-            handler.Check(selectedObjectIds);
-            if (handler.MissingVertexCollection == null)
-                return results;
+            //var results = new List<MissingVertexInPolygonCheckResult>();
+            //var editor = Document.Editor;
+            //var handler = new MissingVertexInPolygonHandler(editor);
+            //handler.Check(selectedObjectIds);
+            //if (handler.MissingVertexCollection == null)
+            //    return results;
 
-            foreach (KeyValuePair<ObjectId, IList<Point3d>> keyValue in handler.MissingVertexCollection)
+            //foreach (KeyValuePair<ObjectId, IList<Point3d>> keyValue in handler.MissingVertexCollection)
+            //{
+            //    var checkResult = new MissingVertexInPolygonCheckResult(keyValue.Key, keyValue.Value);
+            //    results.Add(checkResult);
+            //}
+
+            //return results;
+
+            // Allan：用上述算法在某些情况下，三岔点查找不到，因此改用新算法，并且速度更快。
+            var results = new List<MissingVertexInPolygonCheckResult>();
+            var searcher = new MissingVertexSearcherQuadTree(Document.Editor);
+            searcher.Check(selectedObjectIds);
+            foreach (var info in searcher.MissingVertexInfos)
             {
-                var checkResult = new MissingVertexInPolygonCheckResult(keyValue.Key, keyValue.Value);
+                var checkResult = new MissingVertexInPolygonCheckResult(info.PolylineId, info.Positions);
                 results.Add(checkResult);
             }
-
             return results;
         }
 

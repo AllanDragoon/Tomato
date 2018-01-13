@@ -63,11 +63,11 @@ namespace LS.MapClean.Addin.Algorithms
         private IEnumerable<ClusterNodesInfo> GetClusterNodesKdTree(IEnumerable<CurveVertex> danglingVertices, Transaction transaction)
         {
             var result = new List<ClusterNodesInfo>();
-            var kdTree = new CurveVertexKdTree<CurveVertex>(danglingVertices, it=>it.Point, ignoreZ: true);
+            var kdTree = new CurveVertexKdTree<CurveVertex>(danglingVertices, it=>it.Point.ToArray(), ignoreZ: true);
             // Get all connections of kdTree
             foreach (var vertex in danglingVertices)
             {
-                var neighbors = kdTree.NearestNeighbours(vertex.Point, _tolerance);
+                var neighbors = kdTree.NearestNeighbours(vertex.Point.ToArray(), _tolerance);
                 if (!neighbors.Any())
                     continue;
 

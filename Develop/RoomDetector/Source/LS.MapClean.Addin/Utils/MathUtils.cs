@@ -1,27 +1,31 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace LS.MapClean.Addin.Utils
 {
     public static class DoubleExtensions
     {
-        const double STolerance = 1e-06;
-
+        private static double _sTolerance = 1e-06;
+        public static double STolerance
+        {
+            get { return _sTolerance; }
+            set { _sTolerance = value; }
+        }
         /// <summary>
         /// Extension method to compare double values with a small tolerance to indicate "virtual equality"
         /// </summary>
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
-        public static bool EqualsWithTolerance(this double left, double right, double dTol = STolerance)
+        public static bool EqualsWithTolerance(this double left, double right, double? dTolerance = null)
         {
+            double dTol = dTolerance != null ? dTolerance.Value : STolerance;
             return Math.Abs(left - right) <= dTol;
         }
 
-        public static bool EqualsWithTolerance(this double? left, double right, double dTol = STolerance)
+        public static bool EqualsWithTolerance(this double? left, double right, double? dTolerance = null)
         {
+            double dTol = dTolerance != null ? dTolerance.Value : STolerance;
+
             var leftValue = double.NaN;
             if (left.HasValue)
                 leftValue = left.Value;
@@ -29,8 +33,9 @@ namespace LS.MapClean.Addin.Utils
             return Math.Abs(leftValue - right) <= dTol;
         }
 
-        public static bool EqualsWithTolerance(this double? left, double? right, double dTol = STolerance)
+        public static bool EqualsWithTolerance(this double? left, double? right, double? dTolerance = null)
         {
+            double dTol = dTolerance != null ? dTolerance.Value : STolerance;
             var leftValue = double.NaN;
             if (left.HasValue)
                 leftValue = left.Value;
@@ -49,8 +54,9 @@ namespace LS.MapClean.Addin.Utils
         /// <param name="right"></param>
         /// <param name="dTol"></param>
         /// <returns></returns>
-        public static bool EqualsWithTolerance(this decimal left, decimal right, double dTol = STolerance)
+        public static bool EqualsWithTolerance(this decimal left, decimal right, double? dTolerance = null)
         {
+            double dTol = dTolerance != null ? dTolerance.Value : STolerance;
             return Math.Abs(left - right) <= (decimal)dTol;
         }
 
@@ -60,13 +66,15 @@ namespace LS.MapClean.Addin.Utils
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
-        public static bool Larger(this double left, double right, double dTol = STolerance)
+        public static bool Larger(this double left, double right, double? dTolerance = null)
         {
+            double dTol = dTolerance != null ? dTolerance.Value : STolerance;
             return (left > right) && !left.EqualsWithTolerance(right, dTol);
         }
 
-        public static bool LargerOrEqual(this double left, double right, double dTol = STolerance)
+        public static bool LargerOrEqual(this double left, double right, double? dTolerance = null)
         {
+            double dTol = dTolerance != null ? dTolerance.Value : STolerance;
             return left.Larger(right, dTol) || left.EqualsWithTolerance(right, dTol);
         }
 
@@ -76,13 +84,15 @@ namespace LS.MapClean.Addin.Utils
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
-        public static bool Smaller(this double left, double right, double dTol = STolerance)
+        public static bool Smaller(this double left, double right, double? dTolerance = null)
         {
+            double dTol = dTolerance != null ? dTolerance.Value : STolerance;
             return (left < right) && !left.EqualsWithTolerance(right, dTol);
         }
 
-        public static bool SmallerOrEqual(this double left, double right, double dTol = STolerance)
+        public static bool SmallerOrEqual(this double left, double right, double? dTolerance = null)
         {
+            double dTol = dTolerance != null ? dTolerance.Value : STolerance;
             return left.Smaller(right, dTol) || left.EqualsWithTolerance(right, dTol);
         }
 

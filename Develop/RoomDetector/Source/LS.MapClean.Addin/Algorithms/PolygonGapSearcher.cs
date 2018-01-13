@@ -46,11 +46,39 @@ namespace LS.MapClean.Addin.Algorithms
         /// </summary>
         public ObjectId EntityId { get; set; }
 
+        private bool _disposed = false;
         public void Dispose()
         {
-            if (LineSegment != null)
-                LineSegment.Dispose();
-            LineSegment = null;
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+                return;
+
+            // If true, means called explicitly
+            // If false, means called by Finiaizer.
+            if (disposing)
+            {
+                // Free any other managed objects here.
+                if (LineSegment != null)
+                {
+                    LineSegment.Dispose();
+                    LineSegment = null;
+                }
+            }
+
+            // Free any unmanaged objects here
+
+            _disposed = true;
+        }
+
+        // They can provide a finalizer if needed. The finalizer must call Dispose(false).
+        ~CurveSegment()
+        {
+            Dispose(false);
         }
     }
 
@@ -488,7 +516,7 @@ namespace LS.MapClean.Addin.Algorithms
             var sourceVector = source.Direction;
             var targetVector = target.Direction;
             var angle = sourceVector.GetAngleTo(targetVector);
-            if (angle.Larger(Math.PI / 9.0) && angle.Smaller(Math.PI * 8.0 / 9.0))
+            if (angle.Larger(Math.PI / 36.0) && angle.Smaller(Math.PI * 35.0 / 36.0))
                 return false;
 
             // Check two segments' distance
@@ -717,7 +745,16 @@ namespace LS.MapClean.Addin.Algorithms
             if (selectedObjectIds == null || !selectedObjectIds.Any())
                 return;
 
-            var segments = GetAllCurveSegments(selectedObjectIds);
+            var segmentPairs = SearchNearSegments(selectedObjectIds, _tolerance);
+
+            var qualified = FilterNearSegments(segmentPairs);
+            // Post process for nearSegmentPairs
+            _gaps = GetPolygonGapsFromSegmentPair(qualified);
+        }
+
+        public static IEnumerable<KeyValuePair<CurveSegment, CurveSegment>> SearchNearSegments(IEnumerable<ObjectId> selectedObjectIds, double tolerance)
+        {
+            var segments = GetAllCurveSegments(selectedObjectIds, tolerance, onlyForClosedPolygon:true);
             var vertices = new List<CollisionVertex>();
             foreach (var segment in segments)
             {
@@ -730,7 +767,7 @@ namespace LS.MapClean.Addin.Algorithms
             }
 
             // Create kd tree
-            var kdTree = new CurveVertexKdTree<CollisionVertex>(vertices, it => it.Point);
+            var kdTree = new CurveVertexKdTree<CollisionVertex>(vertices, it => it.Point.ToArray(), ignoreZ: true);
             // Use kd tree to check collision bounding box's intersection
             var segmentPairs = new HashSet<KeyValuePair<CurveSegment, CurveSegment>>();
             foreach (var segment in segments)
@@ -740,33 +777,34 @@ namespace LS.MapClean.Addin.Algorithms
                     continue;
                 var minPoint = extents.Value.MinPoint;
                 var maxPoint = extents.Value.MaxPoint;
-                var nearVertices = kdTree.BoxedRange(new Point3d(minPoint.X, minPoint.Y, 0.0),
-                    new Point3d(maxPoint.X, maxPoint.Y, 0.0));
+                var nearVertices = kdTree.BoxedRange(new double[] { minPoint.X, minPoint.Y, 0.0 },
+                    new double[] { maxPoint.X, maxPoint.Y, 0.0 });
                 foreach (var collisionVertex in nearVertices)
                 {
                     if (collisionVertex.Segment.EntityId == segment.EntityId ||
                         segmentPairs.Contains(new KeyValuePair<CurveSegment, CurveSegment>(segment, collisionVertex.Segment)) ||
                         segmentPairs.Contains(new KeyValuePair<CurveSegment, CurveSegment>(collisionVertex.Segment, segment)))
                         continue;
+
+                    var boundingBox = segment.MiniBoundingBox.ToList();
+                    boundingBox.Add(segment.MiniBoundingBox[0]);
+                    if (!ComputerGraphics.IsInPolygon(boundingBox.ToArray(), new Point2d(collisionVertex.Point.X, collisionVertex.Point.Y), 4))
+                        continue;
+
                     segmentPairs.Add(new KeyValuePair<CurveSegment, CurveSegment>(segment, collisionVertex.Segment));
                 }
-
             }
 
-            var qualified = FilterNearSegments(segmentPairs);
-            // Post process for nearSegmentPairs
-            _gaps = GetPolygonGapsFromSegmentPair(qualified);
-
-            foreach (var curveSegment in segments)
-            {
-                curveSegment.Dispose();
-            }
+            return segmentPairs;
         }
 
-        List<CurveSegmentForCollision> GetAllCurveSegments(IEnumerable<ObjectId> selectedObjectIds)
+        public static List<CurveSegmentForCollision> GetAllCurveSegments(IEnumerable<ObjectId> selectedObjectIds, double tolerance, bool onlyForClosedPolygon)
         {
             var originSegments = new List<CurveSegmentForCollision>();
-            var database = Editor.Document.Database;
+            if (selectedObjectIds == null || !selectedObjectIds.Any())
+                return originSegments;
+
+            var database = selectedObjectIds.First().Database;
             using (var transaction = database.TransactionManager.StartTransaction())
             {
                 foreach (ObjectId objId in selectedObjectIds)
@@ -774,7 +812,7 @@ namespace LS.MapClean.Addin.Algorithms
                     var curve = transaction.GetObject(objId, OpenMode.ForRead) as Curve;
                     if (curve == null)
                         continue;
-                    if (!IsCurveClosed(curve))
+                    if (onlyForClosedPolygon && !IsCurveClosed(curve))
                         continue;
 
                     var segments = CurveUtils.GetSegment2dsOfCurve(curve, transaction);
@@ -782,7 +820,7 @@ namespace LS.MapClean.Addin.Algorithms
                     {
                         LineSegment = it,
                         EntityId = objId,
-                        MiniBoundingBox = CurveSegmentForCollision.CreateCollisionBoundingBox(it, _tolerance / 2.0 + 0.001)
+                        MiniBoundingBox = CurveSegmentForCollision.CreateCollisionBoundingBox(it, tolerance / 2.0 + 0.001)
                     }));
                 }
                 transaction.Commit();
@@ -790,7 +828,7 @@ namespace LS.MapClean.Addin.Algorithms
             return originSegments;
         }
 
-        private bool IsCurveClosed(Curve curve)
+        private static bool IsCurveClosed(Curve curve)
         {
             bool closed = false;
             var polyline = curve as Polyline;
@@ -822,14 +860,14 @@ namespace LS.MapClean.Addin.Algorithms
                 source.EndPoint == target.StartPoint && source.StartPoint == target.EndPoint)
                 return false;
 
-            if (source.IsColinearTo(target))
+            if (IsColinear(source, target))
                 return false;
 
             // source segment and target segment's angle should less than 20
             var sourceVector = source.Direction;
             var targetVector = target.Direction;
             var angle = sourceVector.GetAngleTo(targetVector);
-            if (angle.Larger(Math.PI / 9.0) && angle.Smaller(Math.PI * 8.0 / 9.0))
+            if (angle.Larger(Math.PI / 36.0) && angle.Smaller(Math.PI * 35.0 / 36.0))
                 return false;
 
             // Check two segments' distance
@@ -856,6 +894,19 @@ namespace LS.MapClean.Addin.Algorithms
                 return false;
 
             return true;
+        }
+
+        private bool IsColinear(LineSegment2d source, LineSegment2d target)
+        {
+            var length = source.Length;
+            if (length.EqualsWithTolerance(0.0))
+                return false;
+
+            var leftStart = ComputerGraphics.IsLeft(source.StartPoint, source.EndPoint, target.StartPoint) / length;
+            var leftEnd = ComputerGraphics.IsLeft(source.StartPoint, source.EndPoint, target.EndPoint) / length;
+            if (leftStart.EqualsWithTolerance(0.0) && leftEnd.EqualsWithTolerance(0.0))
+                return true;
+            return false;
         }
 
         private IEnumerable<PolygonGap> GetPolygonGapsFromSegmentPair(
@@ -919,9 +970,9 @@ namespace LS.MapClean.Addin.Algorithms
         }
     }
 
-    class CurveSegmentForCollision : CurveSegment
+    public class CurveSegmentForCollision : CurveSegment
     {
-        public IEnumerable<Point2d> MiniBoundingBox { get; set; }
+        public Point2d[] MiniBoundingBox { get; set; }
 
         /// <summary>
         /// Get segment range box
@@ -952,28 +1003,28 @@ namespace LS.MapClean.Addin.Algorithms
         /// <param name="segment"></param>
         /// <param name="range"></param>
         /// <returns></returns>
-        public static IEnumerable<Point2d> CreateCollisionBoundingBox(LineSegment2d segment, double range)
+        public static Point2d[] CreateCollisionBoundingBox(LineSegment2d segment, double range)
         {
             var startPoint = segment.StartPoint;
             var endPoint = segment.EndPoint;
-            var direction = segment.Direction;
+            var direction = segment.Direction.GetNormal() * range;
             var perp = direction.GetPerpendicularVector().GetNormal() * range;
-            var topleft = startPoint + perp;
-            var topright = endPoint + perp;
-            var bottomleft = startPoint - perp;
-            var bottomright = endPoint - perp;
+            var topleft = startPoint - direction + perp;
+            var topright = endPoint + direction + perp;
+            var bottomleft = startPoint - direction - perp;
+            var bottomright = endPoint + direction - perp;
 
             return new Point2d[]
             {
                 topleft,
                 topright,
-                bottomleft,
-                bottomright
+                bottomright,
+                bottomleft
             };
         }
     }
 
-    class CollisionVertex
+    public class CollisionVertex
     {
         /// <summary>
         /// Vertex's point

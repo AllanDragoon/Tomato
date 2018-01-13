@@ -1,5 +1,6 @@
 ﻿#define TryManualUnion
 
+using System.Diagnostics;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
@@ -7,7 +8,9 @@ using Autodesk.AutoCAD.Geometry;
 using DbxUtils.Utils;
 using GeoAPI.Geometries;
 using GeoAPI.Operation.Buffer;
+using NetTopologySuite.Algorithm;
 using NetTopologySuite.Geometries;
+using NetTopologySuite.Geometries.Implementation;
 using NetTopologySuite.Geometries.Prepared;
 using NetTopologySuite.Geometries.Utilities;
 using NetTopologySuite.Index.Quadtree;
@@ -173,7 +176,7 @@ namespace TopologyTools.Utils
             return GeometryFactory.Default.CreateMultiPoint(endPts);
         }
 
-        public static Dictionary<ObjectId, IList<ObjectId>> GetNearGeometries(IList<ObjectId> objectIds, double buffer)
+        public static Dictionary<ObjectId, IList<ObjectId>> GetNearGeometries(IList<ObjectId> objectIds, double buffer, bool forceClosed = true)
         {
             var dictionary = new Dictionary<ObjectId, IList<ObjectId>>();
 
@@ -188,17 +191,25 @@ namespace TopologyTools.Utils
                     if (!objectId.IsValid)
                         continue;
 
+                    Debug.WriteLine("{0}", objectId.Handle);
+
                     var curve = tr.GetObject(objectId, OpenMode.ForRead) as Curve;
+                    if (curve == null)
+                        continue;
+
                     // 目前只处理封闭的和大于3的多边形
                     // http://192.168.0.6:8080/browse/LCLIBCAD-903
                     // 否则会弹出“points must form a closed linestring”异常
-                    if (curve.Closed && reader.NumberOfVerticesMoreThan3(curve))
-                    {
-                        var geom = reader.ReadCurveAsPolygon(tr, curve) as Polygon;
-                        geom.UserData = objectId;
-                        quadtree.Insert(geom.EnvelopeInternal, geom);
-                        geometries.Add(geom);
-                    }
+                    if (forceClosed && !curve.Closed || !reader.NumberOfVerticesMoreThan3(curve))
+                        continue;
+
+                    var geom = reader.ReadCurveAsPolygon(tr, curve) as Polygon;
+                    if (geom == null)
+                        continue;
+
+                    geom.UserData = objectId;
+                    quadtree.Insert(geom.EnvelopeInternal, geom);
+                    geometries.Add(geom);
                 }
 
                 foreach (var geom in geometries)
@@ -222,6 +233,45 @@ namespace TopologyTools.Utils
             return dictionary;
         }
 
+        public static Dictionary<Curve, IList<Curve>> GetNearGeometries(IEnumerable<Curve> curves, double buffer, bool forceClosed = true)
+        {
+            var dictionary = new Dictionary<Curve, IList<Curve>>();
+            var quadtree = new Quadtree<IGeometry>();
+            var reader = new DwgReader();
+            var geometries = new List<IGeometry>();
+            foreach (var curve in curves)
+            {
+                // 目前只处理封闭的和大于3的多边形
+                // http://192.168.0.6:8080/browse/LCLIBCAD-903
+                // 否则会弹出“points must form a closed linestring”异常
+                if (forceClosed && !curve.Closed || !reader.NumberOfVerticesMoreThan3(curve))
+                    continue;
+                var geom = reader.ReadCurveAsPolygon(null, curve) as Polygon;
+                if (geom == null)
+                    continue;
+
+                geom.UserData = curve;
+                quadtree.Insert(geom.EnvelopeInternal, geom);
+                geometries.Add(geom);
+            }
+            foreach (var geom in geometries)
+            {
+                var nearGeoms = GetNearGeometries(geom, quadtree, buffer);
+                var curve = (Curve)geom.UserData;
+
+                var nearCurves = new List<Curve>();
+                foreach (var geometry in nearGeoms)
+                {
+                    var nearCurve = (Curve)geometry.UserData;
+                    if (nearCurve != curve)
+                        nearCurves.Add(nearCurve);
+                }
+
+                dictionary[curve] = nearCurves;
+            }
+            return dictionary;
+        }
+
         //  If I'm not mistaken, you'll get 0 if you use DistanceOp on any polygon that intersects/contains the door polygon.
         //  I'd 
         //- create a small simple buffer on the door polygon,
@@ -230,7 +280,7 @@ namespace TopologyTools.Utils
         //Here is the pseudo code:
         public static List<IGeometry> GetNearGeometries(IGeometry me, Quadtree<IGeometry> others, double buffer)
         {
-            var bufferedGeom = me.Buffer(0.02 /*meter*/, 2, EndCapStyle.Flat);
+            var bufferedGeom = me.Buffer(buffer /*meter*/, 2, EndCapStyle.Flat);
             var preparedGeometry = PreparedGeometryFactory.Prepare(bufferedGeom);
             var geometries = new List<IGeometry>();
             foreach (var geom in others.Query(bufferedGeom.EnvelopeInternal))
@@ -527,6 +577,68 @@ namespace TopologyTools.Utils
             return result;
         }
 
+        public static Point3d? GetCentroid(IList<Point3d> points)
+        {
+            Point3d? result = null;
+            var coordinates = new List<Coordinate>();
+            foreach (var point in points)
+            {
+                var coordinate = new Coordinate()
+                {
+                    X = point.X,
+                    Y = point.Y,
+                    Z = 0
+                };
+                coordinates.Add(coordinate);
+            }
+            ICoordinateSequence coordinateSequence = CoordinateArraySequenceFactory.Instance.Create(coordinates.ToArray());
+
+            var geometryF = new DwgWriter();
+            var polygon = geometryF.GeometryFactory.CreatePolygon(coordinateSequence.ToCoordinateArray());
+            var coords = Centroid.GetCentroid(polygon);
+            if (coords != null)
+                result = new Point3d(coords.X, coords.Y, coords.Z);
+            return result;
+        }
+
+        public static IList<Point3d> GetMinimumDiameterRectangle(Entity entity, Transaction tr)
+        {
+            var reader = new DwgReader();
+            var geomerty = reader.ReadGeometry(entity, tr);
+            var diameter = new NetTopologySuite.Algorithm.MinimumDiameter(geomerty);
+            var rectangle = diameter.GetMinimumRectangle();
+
+            var coordinates = new List<Point3d>();
+            foreach (var coordinate in rectangle.Coordinates)
+            {
+                var point = new Point3d(coordinate.X, coordinate.Y, 0);
+                coordinates.Add(point);
+            }
+            return coordinates;
+        }
+
+        public static Extents3d? GetExtent(IList<Point3d> points)
+        {
+            var coordinates = new List<Coordinate>();
+            foreach (var point in points)
+            {
+                var coordinate = new Coordinate()
+                {
+                    X = point.X,
+                    Y = point.Y,
+                    Z = 0
+                };
+                coordinates.Add(coordinate);
+            }
+            ICoordinateSequence coordinateSequence = CoordinateArraySequenceFactory.Instance.Create(coordinates.ToArray());
+            var geometryF = new DwgWriter();
+            var polygon = geometryF.GeometryFactory.CreatePolygon(coordinateSequence.ToCoordinateArray());
+            var envelop = (Envelope)polygon.Envelope;
+            var extent3D = new Extents3d(new Point3d(envelop.MinX, envelop.MinY, 0), 
+                new Point3d(envelop.MaxX, envelop.MaxY, 0));
+            return extent3D;
+        }
+
         public static bool IsPolylineCountClockWise(ObjectId plineId)
         {
             using (var tr = plineId.Database.TransactionManager.StartTransaction())
@@ -544,8 +656,17 @@ namespace TopologyTools.Utils
         {
             var reader = new DwgReader();
             var geomerty = reader.ReadCurveAsLineString(tr, curve);
-            var lineRing = reader.GeometryFactory.CreateLinearRing(geomerty.CoordinateSequence);
-            return lineRing.IsCCW;
+
+            /*
+             * This check catches cases where the ring contains an A-B-A configuration of points.
+             * This can happen if the ring does not contain 3 distinct points
+             * (including the case where the input array has fewer than 4 elements),
+             * or it contains coincident line segments.
+             */
+            if (geomerty.CoordinateSequence.Count < 3) // To avoid exception from CGAlgorithms.IsCCW routine
+                return false;
+
+            return CGAlgorithms.IsCCW(geomerty.CoordinateSequence);
         }
 
         public static bool IsCcw(IList<Point2d> points)
@@ -561,10 +682,9 @@ namespace TopologyTools.Utils
                 };
                 coordinates.Add(coordinate);
             }
-            var lineRing = new LinearRing(coordinates.ToArray());
-            return lineRing.IsCCW;
+            ICoordinateSequence coordinateSequence = CoordinateArraySequenceFactory.Instance.Create(coordinates.ToArray());
+            return CGAlgorithms.IsCCW(coordinateSequence);
         }
-
 
         public static void TestUnionPolygonCascaded()
         {
@@ -674,37 +794,6 @@ namespace TopologyTools.Utils
                     output.Add(candpoly);
             }
             return polygon.Factory.BuildGeometry(output);
-        }
-
-        public static void TestSplitPolygonCascaded()
-        {
-            ObjectId splitPolygon, splitLine;
-            // 2.选择需要复制属性的多段线
-            var document = Application.DocumentManager.MdiActiveDocument;
-            var pe = new PromptEntityOptions("\n选择需要分割的多段线");
-            pe.SetRejectMessage("请选择多段线。");
-            pe.AddAllowedClass(typeof(Polyline), true);
-            pe.AddAllowedClass(typeof(Polyline2d), true);
-            pe.AllowNone = true;
-            PromptEntityResult res = document.Editor.GetEntity(pe);
-            if (res.Status != PromptStatus.OK && res.Status != PromptStatus.None)
-                return;
-
-            splitPolygon = res.ObjectId;
-
-            pe = new PromptEntityOptions("\n选择分割线，可以是请选择直线，多段线，二维多段线");
-            pe.SetRejectMessage("请选择争取的实体");
-            pe.AddAllowedClass(typeof(Polyline), true);
-            pe.AddAllowedClass(typeof(Polyline2d), true);
-            pe.AddAllowedClass(typeof(Line), true);
-            //pe.AddAllowedClass(typeof(Line2d), true);
-            pe.AllowNone = true;
-            res = document.Editor.GetEntity(pe);
-            if (res.Status != PromptStatus.OK && res.Status != PromptStatus.None)
-                return;
-
-            splitLine = res.ObjectId;
-            var objectIds = SplitPolygon(splitPolygon, splitLine);
         }
 
         public static List<ObjectId> SplitPolygon(ObjectId plineId, ObjectId lineId)
