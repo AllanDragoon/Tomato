@@ -130,6 +130,7 @@
     <Compile Include="Framework\DialogRegister.cs" />
     <Compile Include="Framework\DialogService.cs" />
     <Compile Include="Framework\WindowWrapper.cs" />
+    <Compile Include="Main\ApartmentContour.cs" />
     <Compile Include="Main\DocumentEventHandlers.cs" />
     <Compile Include="Algorithms\BreakCrossingObjects.cs" />
     <Compile Include="Main\AddinApplication.cs" />
