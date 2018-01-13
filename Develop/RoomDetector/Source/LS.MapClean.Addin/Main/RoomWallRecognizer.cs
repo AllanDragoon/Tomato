@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text;
+using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 
 namespace LS.MapClean.Addin.Main
@@ -12,6 +13,7 @@ namespace LS.MapClean.Addin.Main
         public static void Recognize()
         {
             // 1. Get all available entities in model space
+            var linearIds = GetLinearEntities();
             // ( We only use polylines and lines, so filter out others.)
             // 2. Get the contour of the apartment.
             // 3. Use the contour to search walls.
@@ -22,7 +24,36 @@ namespace LS.MapClean.Addin.Main
 
         private static IEnumerable<ObjectId> GetLinearEntities()
         {
-            throw new NotImplementedException();
+            var result = new List<ObjectId>();
+            Database curDb = Application.DocumentManager.MdiActiveDocument.Database;
+            using (var transaction = curDb.TransactionManager.StartTransaction())
+            {
+                var modelspaceId = SymbolUtilityServices.GetBlockModelSpaceId(curDb);
+                var modelspace = (BlockTableRecord) transaction.GetObject(modelspaceId, OpenMode.ForRead);
+                foreach (ObjectId objId in modelspace)
+                {
+                    var entity = transaction.GetObject(objId, OpenMode.ForRead);
+                    if (!IsVisibleLinearEntity(entity, transaction))
+                    {
+                        continue;
+                    }
+                    result.Add(objId);
+                }
+                transaction.Commit();
+            }
+            return result;
+        }
+
+        private static bool IsVisibleLinearEntity(DBObject entity, Transaction transaction)
+        {
+            var type = entity.GetType();
+            if (type != typeof (Polyline) && type != typeof (Line))
+                return false;
+            var layer = (LayerTableRecord)transaction.GetObject(((Entity)entity).LayerId, OpenMode.ForRead);
+            if (layer.IsOff || layer.IsFrozen)
+                return false;
+
+            return true;
         }
 
         private static IEnumerable<Entity> GetApartmentContour()
