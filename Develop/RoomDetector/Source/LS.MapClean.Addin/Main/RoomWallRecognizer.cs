@@ -73,11 +73,137 @@ namespace LS.MapClean.Addin.Main
                 var contourSegments = info.Contour;
                 var innerSegments = info.InternalSegments;
 
+                // find out windows on wall, usually there are 4 or 3 parallel line segments for a window like below.
+                //   -----------------------
+                //   -----------------------
+                //   -----------------------
+                //   -----------------------
+                const double maxWallWidth = 600; // todo
+                Tolerance tol = new Tolerance(0.001, 0.001);
+                List<LineSegment3d> sideWindowSegments = new List<LineSegment3d>();
+                List<List<LineSegment3d>> windowGroup = new List<List<LineSegment3d>>();
+                for (var i = 0; i < innerSegments.Count; i++)
+                {
+                    var thisSeg = innerSegments[i];
+                    //var startPt = innerSegments[i].StartPoint;
+                    //var endPt = innerSegments[i].EndPoint;
+                    // do check if the start and end points are on the wall
+                    //var cIndex = contourSegments.FindIndex((seg) => {
+                    //    if (seg.IsOn(startPt, tol) && seg.IsOn(endPt, tol))
+                    //        return true;
+                    //    return false;
+                    //});
+
+                    // find out if the line segment is on the outer contour wall
+                    //var cIndex = contourSegments.FindIndex((seg) =>
+                    //{
+                    //    if (seg.IsParallelTo(innerSegments[i], tol))
+                    //    {
+                    //        var dist = seg.GetDistanceTo(thisSeg.MidPoint);
+                    //        if (dist < maxWallWidth)
+                    //            return true;
+                    //    }
+                    //    return false;
+                    //});
+                    //if (cIndex != -1)
+                    {
+                        // find out all other parallel and equal length segments with this one
+                        var startPt = thisSeg.StartPoint;
+                        var endPt = thisSeg.EndPoint;
+                        double thisLength = thisSeg.Length;
+                        Vector3d direction = thisSeg.Direction.RotateBy(Math.PI / 2, Vector3d.ZAxis);
+                        Line3d startLine = new Line3d(startPt, direction);
+                        Line3d endLine = new Line3d(endPt, direction);
+                        List<LineSegment3d> parEqualSegs = new List<LineSegment3d>();
+                        for (var j = 0; j < innerSegments.Count; j++)
+                        {
+                            if (i == j) continue; // itself
+                            if (thisSeg.IsParallelTo(innerSegments[j]) &&
+                                (startLine.IsOn(innerSegments[j].StartPoint, tol) && endLine.IsOn(innerSegments[j].EndPoint, tol)) ||
+                                (startLine.IsOn(innerSegments[j].EndPoint, tol) && endLine.IsOn(innerSegments[j].StartPoint, tol)))
+                            {
+                                parEqualSegs.Add(innerSegments[j]);
+                            }
+                        }
+
+                        if (parEqualSegs.Count > 1)
+                        {
+                            Line3d helper1 = new Line3d(thisSeg.MidPoint, thisSeg.Direction);
+                            Line3d helper2 = new Line3d(thisSeg.MidPoint, direction);
+                            var intersects = helper1.IntersectWith(helper2);
+                            var basePt = intersects[0];
+
+                            //direction = (thisSeg.MidPoint - basePt).GetNormal();
+                            // sort them by direction
+                            parEqualSegs.Add(thisSeg);
+                            parEqualSegs.Sort((seg1, seg2) => {
+                                Vector3d vector1 = seg1.MidPoint - basePt;
+                                Vector3d vector2 = seg2.MidPoint - basePt;
+                                if (vector1.DotProduct(direction) > vector2.DotProduct(direction))
+                                    return 1;
+                                return -1;
+                            });
+
+                            List<LineSegment3d> thisWindow = new List<LineSegment3d>();
+                            double distance = parEqualSegs[1].MidPoint.DistanceTo(parEqualSegs[0].MidPoint);
+                            if (distance < maxWallWidth / 2)
+                            {
+                                thisWindow.Add(parEqualSegs[0]);
+                                thisWindow.Add(parEqualSegs[1]);
+                                for (var k = 2; k < parEqualSegs.Count; k++)
+                                {
+                                    var dist = parEqualSegs[k].MidPoint.DistanceTo(parEqualSegs[k - 1].MidPoint);
+                                    if (thisWindow.Count > 3 || Math.Abs(dist - distance) > 100)
+                                    {
+                                        // we have find out 4 parallel lines or the distance is not equal to previous one
+                                        break;
+                                    }
+                                    thisWindow.Add(parEqualSegs[k]);
+                                }
+
+                                if (thisWindow.Count > 2)
+                                {
+                                    // this will be treaded as a valid window
+                                    windowGroup.Add(thisWindow);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                innerSegments.RemoveAll((seg) => {
+                    var index = windowGroup.FindIndex((window) => {
+                        return window.Contains(seg);
+                    });
+                    if (index != -1)
+                        return true;
+                    return false;
+                });
+                // end window
+
                 var modelspaceId = SymbolUtilityServices.GetBlockModelSpaceId(database);
                 var modelspace = (BlockTableRecord)transaction.GetObject(modelspaceId, OpenMode.ForWrite);
 
+                var color1 = Color.FromColorIndex(ColorMethod.ByAci, 1); // 1: red
+                ObjectId layerId = LayerUtils.AddNewLayer(database, "temp-poly", "Continuous", color1);
+
+                for (var i = 0; i < windowGroup.Count; i++)
+                {
+                    var window = windowGroup[i];
+                    for (var j = 0; j < window.Count; j++)
+                    {
+                        var start = window[j].StartPoint;
+                        var end = window[j].EndPoint;
+                        var line = new Line(start, end);
+                        line.Color = color1;
+                        line.LayerId = layerId;
+
+                        modelspace.AppendEntity(line);
+                        transaction.AddNewlyCreatedDBObject(line, add: true);
+                    }
+                }
+
                 var color = Color.FromColorIndex(ColorMethod.ByAci, 3); // Green
-                ObjectId layerId = LayerUtils.AddNewLayer(database, "temp-poly", "Continuous", color);
                 var polyline = new Polyline();
                 for (var i = 0; i < contourSegments.Count; i++)
                 {
@@ -91,7 +217,6 @@ namespace LS.MapClean.Addin.Main
 
                 modelspace.AppendEntity(polyline);
                 transaction.AddNewlyCreatedDBObject(polyline, add: true);
-
 
                 foreach (var segment in innerSegments)
                 {
