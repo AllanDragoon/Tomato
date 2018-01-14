@@ -246,7 +246,7 @@ namespace LS.MapClean.Addin.Main
                 for (var i = 0; i < resultPoints.Count - 1; i++)
                 {
                     var start = new Point3d(resultPoints[i].X, resultPoints[i].Y, 0);
-                    var end = new Point3d(resultPoints[i + 1].Y, resultPoints[i + 1].Y, 0);
+                    var end = new Point3d(resultPoints[i + 1].X, resultPoints[i + 1].Y, 0);
                     var segment = new LineSegment3d(start, end);
                     contourSegments.Add(segment);
                 }
