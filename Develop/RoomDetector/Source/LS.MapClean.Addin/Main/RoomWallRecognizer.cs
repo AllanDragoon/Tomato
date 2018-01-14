@@ -117,7 +117,7 @@ namespace LS.MapClean.Addin.Main
                         List<LineSegment3d> parEqualSegs = new List<LineSegment3d>();
                         for (var j = 0; j < innerSegments.Count; j++)
                         {
-                            if (i == j) continue; // itself
+                            if (i == j || innerSegments[j] == null) continue; // itself
                             if (thisSeg.IsParallelTo(innerSegments[j]) &&
                                 (startLine.IsOn(innerSegments[j].StartPoint, tol) && endLine.IsOn(innerSegments[j].EndPoint, tol)) ||
                                 (startLine.IsOn(innerSegments[j].EndPoint, tol) && endLine.IsOn(innerSegments[j].StartPoint, tol)))
@@ -139,7 +139,9 @@ namespace LS.MapClean.Addin.Main
                             parEqualSegs.Sort((seg1, seg2) => {
                                 Vector3d vector1 = seg1.MidPoint - basePt;
                                 Vector3d vector2 = seg2.MidPoint - basePt;
-                                if (vector1.DotProduct(direction) > vector2.DotProduct(direction))
+                                if (Math.Abs(vector1.DotProduct(direction) - vector2.DotProduct(direction)) < 0.001)
+                                    return 0;
+                                else if (vector1.DotProduct(direction) > vector2.DotProduct(direction))
                                     return 1;
                                 return -1;
                             });
@@ -153,7 +155,7 @@ namespace LS.MapClean.Addin.Main
                                 for (var k = 2; k < parEqualSegs.Count; k++)
                                 {
                                     var dist = parEqualSegs[k].MidPoint.DistanceTo(parEqualSegs[k - 1].MidPoint);
-                                    if (thisWindow.Count > 3 || Math.Abs(dist - distance) > 100)
+                                    if (thisWindow.Count > 4 || Math.Abs(dist - distance) > 100)
                                     {
                                         // we have find out 4 parallel lines or the distance is not equal to previous one
                                         break;
