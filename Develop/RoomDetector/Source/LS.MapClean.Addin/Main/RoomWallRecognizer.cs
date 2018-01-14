@@ -17,9 +17,14 @@ namespace LS.MapClean.Addin.Main
             // 1. Get all available entities in model space
             var linearIds = GetLinearEntities();
             // ( We only use polylines and lines, so filter out others.)
-            GetApartmentContour(linearIds);
+            var apartmentContourInfo = GetApartmentContour(linearIds);
             // 2. Get the contour of the apartment.
             // 3. Use the contour to search walls.
+            if (apartmentContourInfo.Contour.Count > 0)
+            {
+                var allLines = new List<LineSegment3d>(); // Daniel TODO
+                SearchWalls(apartmentContourInfo.Contour, apartmentContourInfo.InternalSegments);
+            }
             // 4. Get walls' center lines, and connect them.
             // 5. Find rooms
             // 6. Show the walls and rooms
@@ -104,12 +109,9 @@ namespace LS.MapClean.Addin.Main
             return info;
         }
 
-        private static void SearchWalls(IEnumerable<Line> entities)
+        private static void SearchWalls(List<LineSegment3d> outLines, List<LineSegment3d> allLines)
         {
-            foreach (Line line in entities)
-            {
-                LineSegment3d lineSeg2 = WallRecognizer.getWallline(line, entities);  // Daniel: entities should be instead
-            }
+            WallRecognizer.getWallinfors(outLines, allLines);
         }
 
         private static IEnumerable<Entity> GetWallCenterLines( /*TBD*/)
