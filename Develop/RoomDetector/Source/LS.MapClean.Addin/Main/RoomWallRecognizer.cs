@@ -88,7 +88,7 @@ namespace LS.MapClean.Addin.Main
                 polyline.Closed = true;
                 polyline.Color = color;
                 polyline.LayerId = layerId;
-                    
+
                 modelspace.AppendEntity(polyline);
                 transaction.AddNewlyCreatedDBObject(polyline, add: true);
 
@@ -110,9 +110,58 @@ namespace LS.MapClean.Addin.Main
 
         private static void SearchWalls(List<LineSegment3d> outLines, List<LineSegment3d> allLines)
         {
+            WallInfor wallInfo = null;
             using (var tolerance = new Utils.SafeToleranceOverride())
             {
-                WallInfor wallinfo = WallRecognizer.getWallinfors(outLines, allLines);
+                wallInfo = WallRecognizer.getWallinfors(outLines, allLines);
+            }
+            if (wallInfo == null)
+                return;
+
+            // Test Code!
+            var visited = new HashSet<WallInfor>();
+            var database = Application.DocumentManager.MdiActiveDocument.Database;
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var modelspaceId = SymbolUtilityServices.GetBlockModelSpaceId(database);
+                var modelspace = (BlockTableRecord)transaction.GetObject(modelspaceId, OpenMode.ForWrite);
+
+                var color = Color.FromColorIndex(ColorMethod.ByAci, 4); // Cyan
+                ObjectId layerId = LayerUtils.AddNewLayer(database, "temp-poly2", "Continuous", color);
+
+                var currentInfo = wallInfo;
+                var count = 0;
+                while (currentInfo != null && currentInfo.outline != null)
+                {
+                    if (visited.Contains(currentInfo))
+                    {
+                        break;
+                    }
+                    var line = new Line(currentInfo.outline.StartPoint, currentInfo.outline.EndPoint);
+                    line.Color = color;
+                    line.LayerId = layerId;
+                    modelspace.AppendEntity(line);
+                    transaction.AddNewlyCreatedDBObject(line, add: true);
+
+                    foreach (var innerSeg in currentInfo.innerlines)
+                    {
+                        var innerLine = new Line(innerSeg.StartPoint, innerSeg.EndPoint);
+                        innerLine.Color = color;
+                        innerLine.LayerId = layerId;
+                        modelspace.AppendEntity(innerLine);
+                        transaction.AddNewlyCreatedDBObject(innerLine, add: true);
+                    }
+
+                    visited.Add(currentInfo);
+                    count++;
+                    currentInfo = currentInfo.next;
+                    if (currentInfo == wallInfo)
+                    {
+                        break;
+                    }
+                }
+
+                transaction.Commit();
             }
         }
 
