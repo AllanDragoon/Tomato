@@ -20,7 +20,7 @@ namespace LS.MapClean.Addin.Main
         public static double PIXEL_TO_M_FACTOR = 136.70; // how many pixels indicate one Meter in canvas (=1/0.0254/0.288) where 0.288 is the PIXEL_TO_INCHES_FACTOR in flash version.
         public static double minWallWidth = 0.03 * MILLIMETER_TO_METER; // 30mm
         public static double maxWallWidth = 1 * MILLIMETER_TO_METER; //1000mm
-        public static  Autodesk.AutoCAD.Geometry.Tolerance tol = new Autodesk.AutoCAD.Geometry.Tolerance(0.01, 0.01);
+        //public static  Autodesk.AutoCAD.Geometry.Tolerance tol = new Autodesk.AutoCAD.Geometry.Tolerance(0.01, 0.01);
 
         public static Vector3d getLineDirection(Line line)
         {
@@ -40,8 +40,8 @@ namespace LS.MapClean.Addin.Main
             Point3d projectPt1 = lineseg1.GetClosestPointTo(lineseg2.StartPoint).Point;
             Point3d projectPt2 = lineseg1.GetClosestPointTo(lineseg2.EndPoint).Point;
             // after the projection, the two line segments(p1->p2 & p3->p4) may be same
-            if ((projectPt1.IsEqualTo(lineseg1.StartPoint, tol) && projectPt2.IsEqualTo(lineseg1.EndPoint, tol)) ||
-                (projectPt1.IsEqualTo(lineseg1.EndPoint, tol) && projectPt2.IsEqualTo(lineseg1.StartPoint, tol)))
+            if ((projectPt1.IsEqualTo(lineseg1.StartPoint) && projectPt2.IsEqualTo(lineseg1.EndPoint)) ||
+                (projectPt1.IsEqualTo(lineseg1.EndPoint) && projectPt2.IsEqualTo(lineseg1.StartPoint)))
             {
                 return true;
             }
@@ -73,7 +73,7 @@ namespace LS.MapClean.Addin.Main
             {
                 var line = outLines[(i + index) % size];
                 // skip the line if it is in part exist wall infor
-               // if (!isPartOfWallinfor(line, wallInfor))
+                if (!isPartOfWallinfor(line, wallInfor))
                 {
                     List<LineSegment3d> innerlines = WallRecognizer.getWallline(line, allLines);
                     // set the wall infor
@@ -90,9 +90,9 @@ namespace LS.MapClean.Addin.Main
         public static bool isPartOfWallinfor(LineSegment3d line, WallInfor wallInfor)
         {
             WallInfor tmpWallInfor = wallInfor;
-            List<Point3d> points = new List<Point3d>();
             while (tmpWallInfor != null)
             {
+                List<Point3d> points = new List<Point3d>();
                 if (tmpWallInfor.outline != null)
                 {
                     if (!points.Contains(tmpWallInfor.outline.StartPoint))
@@ -120,10 +120,16 @@ namespace LS.MapClean.Addin.Main
                         }
                     }
                 }
+
+                if (points.Contains(line.StartPoint) && points.Contains(line.EndPoint))
+                {
+                    return true;
+                }
+
                 tmpWallInfor = tmpWallInfor.next;
             }
 
-            return points.Contains(line.StartPoint) && points.Contains(line.EndPoint);
+            return false;
         }
 
         public static void updateInnerLines(LineSegment3d line, double dist, List<LineSegment3d> innerlines)
@@ -148,16 +154,16 @@ namespace LS.MapClean.Addin.Main
                     {
                         Line3d innerline3d = WallRecognizer.toLine3d(innerLine.StartPoint, innerLine.EndPoint);
                         double innerDist = innerline3d.GetDistanceTo(line.StartPoint);
-                        if (DoubleExtensions.Larger(dist, innerDist))
+                        if (DoubleExtensions.Larger(innerDist, dist))
                         {
-                            if (!innerlines.Contains(line))
+                            if (!preparelines.Contains(line))
                             {
                                 preparelines.Add(line);
                             }
                         }
                         else
-                        { 
-                            if (!innerlines.Contains(innerLine))
+                        {
+                            if (!preparelines.Contains(innerLine))
                             {
                                 preparelines.Add(innerLine);
                             }
@@ -165,7 +171,7 @@ namespace LS.MapClean.Addin.Main
                     }
                     else
                     {
-                        if (!innerlines.Contains(line))
+                        if (!preparelines.Contains(line))
                         {
                             preparelines.Add(line);
                         }

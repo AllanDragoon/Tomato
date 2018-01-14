@@ -22,7 +22,6 @@ namespace LS.MapClean.Addin.Main
             // 3. Use the contour to search walls.
             if (apartmentContourInfo.Contour.Count > 0)
             {
-                var allLines = new List<LineSegment3d>(); // Daniel TODO
                 SearchWalls(apartmentContourInfo.Contour, apartmentContourInfo.InternalSegments);
             }
             // 4. Get walls' center lines, and connect them.
@@ -111,7 +110,10 @@ namespace LS.MapClean.Addin.Main
 
         private static void SearchWalls(List<LineSegment3d> outLines, List<LineSegment3d> allLines)
         {
-            WallRecognizer.getWallinfors(outLines, allLines);
+            using (var tolerance = new Utils.SafeToleranceOverride())
+            {
+                WallInfor wallinfo = WallRecognizer.getWallinfors(outLines, allLines);
+            }
         }
 
         private static IEnumerable<Entity> GetWallCenterLines( /*TBD*/)
