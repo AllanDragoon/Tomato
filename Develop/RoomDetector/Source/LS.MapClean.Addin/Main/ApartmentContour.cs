@@ -321,24 +321,15 @@ namespace LS.MapClean.Addin.Main
 
         private static bool IsRectangle(Polyline polyline)
         {
-            var tol = 0.01;
-            var rectangle = ExtentsToPoint2ds(polyline.GeometricExtents);
-            //var segments = new List<LineSegment2d>();
-            //for (var i = 0; i < rectangle.Length; i++)
-            //{
-            //    var start = rectangle[i];
-            //    var end = rectangle[(i + 1)%rectangle.Length];
-            //    segments.Add(new LineSegment2d(start, end));
-            //}
-            var point2ds = CurveUtils.GetDistinctVertices2D(polyline, null);
-            foreach (var point2d in point2ds)
-            {
-                if (ComputerGraphics.IsInPolygon2(point2d, rectangle, 0.01) != -1)
-                {
-                    return false;
-                }
-            }
-            return true;
+            var extents = polyline.GeometricExtents;
+            var width = extents.MaxPoint.X - extents.MinPoint.X;
+            var height = extents.MaxPoint.Y - extents.MinPoint.Y;
+            var idealArea = Math.Abs(width*height);
+            if (idealArea.EqualsWithTolerance(0.0))
+                return false;
+            var area = Math.Abs(polyline.Area);
+            var ratio = area/idealArea;
+            return ratio.LargerOrEqual(0.95);
         }
 
         private static bool HaveSomeTextsOnBottom(Polyline polyline, Database database)
@@ -365,7 +356,7 @@ namespace LS.MapClean.Addin.Main
                         continue;
                     }
 
-                    if (!IsVisibleLinearEntity(entity, transaction))
+                    if (!IsVisibleEntity(entity, transaction))
                         continue;
 
                     Point3d textPosition;
@@ -399,11 +390,8 @@ namespace LS.MapClean.Addin.Main
             return path;
         }
 
-        private static bool IsVisibleLinearEntity(DBObject entity, Transaction transaction)
+        private static bool IsVisibleEntity(DBObject entity, Transaction transaction)
         {
-            var type = entity.GetType();
-            if (type != typeof(Polyline) && type != typeof(Line))
-                return false;
             var layer = (LayerTableRecord)transaction.GetObject(((Entity)entity).LayerId, OpenMode.ForRead);
             if (layer.IsOff || layer.IsFrozen)
                 return false;
