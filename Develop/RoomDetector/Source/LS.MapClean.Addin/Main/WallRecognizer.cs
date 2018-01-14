@@ -148,19 +148,26 @@ namespace LS.MapClean.Addin.Main
                     {
                         Line3d innerline3d = WallRecognizer.toLine3d(innerLine.StartPoint, innerLine.EndPoint);
                         double innerDist = innerline3d.GetDistanceTo(line.StartPoint);
-                        if (DoubleExtensions.Larger(innerDist, dist))
+                        if (DoubleExtensions.Larger(dist, innerDist))
                         {
                             if (!innerlines.Contains(line))
                             {
-                                //preparelines.Add(line);
+                                preparelines.Add(line);
+                            }
+                        }
+                        else
+                        { 
+                            if (!innerlines.Contains(innerLine))
+                            {
+                                preparelines.Add(innerLine);
                             }
                         }
                     }
                     else
                     {
-                        if (!innerlines.Contains(innerLine))
+                        if (!innerlines.Contains(line))
                         {
-                            //preparelines.Add(line);
+                            preparelines.Add(line);
                         }
                     }
                 }

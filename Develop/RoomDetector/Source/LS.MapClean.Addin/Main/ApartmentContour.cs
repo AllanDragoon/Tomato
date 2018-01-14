@@ -185,6 +185,17 @@ namespace LS.MapClean.Addin.Main
                     return -1;
                 return 1;
             });
+            if (polylines.Count >= 2)
+            {
+                var first = polylines[0];
+                var second = polylines[1];
+                // Exclude the situation if the largest polyline is a drawing frame.
+                if (IsRectangle(first) && HaveSomeTextsOnBottom(first, database) &&
+                    PolygonIncludeSearcher.IsInclude(first, second, null))
+                {
+                    polylines.RemoveAt(0);
+                }
+            }
             Polyline largestPolyline = polylines.FirstOrDefault();
             var resultPoints = new List<Point2d>();
             if (largestPolyline != null)
@@ -306,6 +317,98 @@ namespace LS.MapClean.Addin.Main
                 InternalSegments = innerSegments
             };
             return result;
+        }
+
+        private static bool IsRectangle(Polyline polyline)
+        {
+            var tol = 0.01;
+            var rectangle = ExtentsToPoint2ds(polyline.GeometricExtents);
+            //var segments = new List<LineSegment2d>();
+            //for (var i = 0; i < rectangle.Length; i++)
+            //{
+            //    var start = rectangle[i];
+            //    var end = rectangle[(i + 1)%rectangle.Length];
+            //    segments.Add(new LineSegment2d(start, end));
+            //}
+            var point2ds = CurveUtils.GetDistinctVertices2D(polyline, null);
+            foreach (var point2d in point2ds)
+            {
+                if (ComputerGraphics.IsInPolygon2(point2d, rectangle, 0.01) != -1)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool HaveSomeTextsOnBottom(Polyline polyline, Database database)
+        {
+            var extent = polyline.GeometricExtents;
+
+            var path = ExtentsToPoint2ds(extent);
+            var textCount = 0;
+            using (var transaction = database.TransactionManager.StartTransaction())
+            {
+                var modelspaceId = SymbolUtilityServices.GetBlockModelSpaceId(database);
+                var modelspace = (BlockTableRecord)transaction.GetObject(modelspaceId, OpenMode.ForRead);
+                
+                foreach (ObjectId objId in modelspace)
+                {
+                    if (textCount >= 5)
+                        break;
+
+                    var entity = transaction.GetObject(objId, OpenMode.ForRead);
+                    var text = entity as DBText;
+                    var mtext = entity as MText;
+                    if (text == null && mtext == null)
+                    {
+                        continue;
+                    }
+
+                    if (!IsVisibleLinearEntity(entity, transaction))
+                        continue;
+
+                    Point3d textPosition;
+                    if (text != null)
+                    {
+                        textPosition = text.Position;
+                    }
+                    else
+                    {
+                        textPosition = mtext.Location;
+                    }
+                    var pos2d = new Point2d(textPosition.X, textPosition.Y);
+                    if (ComputerGraphics.IsInPolygon2(pos2d, path) == 1)
+                    {
+                        textCount++;
+                    }
+                }
+                transaction.Commit();
+            }
+            return textCount >= 5;
+        }
+
+        private static Point2d[] ExtentsToPoint2ds(Extents3d extent)
+        {
+            var height = extent.MaxPoint.Y - extent.MinPoint.Y;
+            var pt1 = new Point2d(extent.MinPoint.X, extent.MinPoint.Y);
+            var pt2 = new Point2d(extent.MaxPoint.X, extent.MinPoint.Y);
+            var pt3 = new Point2d(extent.MaxPoint.X, extent.MinPoint.Y + height / 5);
+            var pt4 = new Point2d(extent.MinPoint.X, extent.MinPoint.Y + height / 5);
+            var path = new Point2d[] { pt1, pt2, pt3, pt4 };
+            return path;
+        }
+
+        private static bool IsVisibleLinearEntity(DBObject entity, Transaction transaction)
+        {
+            var type = entity.GetType();
+            if (type != typeof(Polyline) && type != typeof(Line))
+                return false;
+            var layer = (LayerTableRecord)transaction.GetObject(((Entity)entity).LayerId, OpenMode.ForRead);
+            if (layer.IsOff || layer.IsFrozen)
+                return false;
+
+            return true;
         }
     }
 }
