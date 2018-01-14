@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.Colors;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
+using DbxUtils.Utils;
 
 namespace LS.MapClean.Addin.Main
 {
@@ -57,20 +59,49 @@ namespace LS.MapClean.Addin.Main
             return true;
         }
 
-        private static IEnumerable<Entity> GetApartmentContour(IEnumerable<ObjectId> linearIds)
+        private static ApartmentContourInfo GetApartmentContour(IEnumerable<ObjectId> linearIds)
         {
-            var point2ds = ApartmentContour.CalcContour(Application.DocumentManager.MdiActiveDocument, linearIds);
-            var result = new List<Line>();
-            for (var i = 0; i < point2ds.Count - 1; i++)
+            var info = ApartmentContour.CalcContour(Application.DocumentManager.MdiActiveDocument, linearIds);
+            var database = Application.DocumentManager.MdiActiveDocument.Database;
+            // Test code !
+            using (var transaction = database.TransactionManager.StartTransaction())
             {
-                var startPt2 = point2ds[i];
-                var endPt2 = point2ds[i + 1];
-                var startPt = new Point3d(startPt2.X, startPt2.Y, 0);
-                var endPt = new Point3d(endPt2.X, endPt2.Y, 0);
-                var line = new Line(startPt, endPt);
-                result.Add(line);
+                var contourSegments = info.Contour;
+                var innerSegments = info.InternalSegments;
+
+                var modelspaceId = SymbolUtilityServices.GetBlockModelSpaceId(database);
+                var modelspace = (BlockTableRecord)transaction.GetObject(modelspaceId, OpenMode.ForWrite);
+
+                var color = Color.FromColorIndex(ColorMethod.ByAci, 3); // Green
+                ObjectId layerId = LayerUtils.AddNewLayer(database, "temp-poly", "Continuous", color);
+                var polyline = new Polyline();
+                for (var i = 0; i < contourSegments.Count; i++)
+                {
+                    var segment = contourSegments[i];
+                    var start = segment.StartPoint;
+                    polyline.AddVertexAt(i, new Point2d(start.X, start.Y), 0, 0, 0);
+                }
+                polyline.Closed = true;
+                polyline.Color = color;
+                polyline.LayerId = layerId;
+                    
+                modelspace.AppendEntity(polyline);
+                transaction.AddNewlyCreatedDBObject(polyline, add: true);
+
+
+                foreach (var segment in innerSegments)
+                {
+                    var line = new Line(segment.StartPoint, segment.EndPoint);
+
+                    line.Color = color;
+                    line.LayerId = layerId;
+                    modelspace.AppendEntity(line);
+                    transaction.AddNewlyCreatedDBObject(line, add: true);
+                }
+
+                transaction.Commit();
             }
-            return result;
+            return info;
         }
 
         private static void SearchWalls(IEnumerable<Line> entities)
