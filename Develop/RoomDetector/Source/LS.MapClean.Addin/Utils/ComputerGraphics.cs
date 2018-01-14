@@ -41,8 +41,10 @@ namespace LS.MapClean.Addin.Utils
                 return true;
         }
 
-        public static int IsInPolygon2(Point2d pt, Point2d[] path)
+        public static int IsInPolygon2(Point2d pt, Point2d[] path, double tol = 0.0001)
         {
+            var oldTol = DoubleExtensions.STolerance;
+            DoubleExtensions.STolerance = tol;
             //returns 0 if false, +1 if true, -1 if pt ON polygon boundary
             //See "The Point in Polygon Problem for Arbitrary Polygons" by Hormann & Agathos
             //http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.88.5498&rep=rep1&type=pdf
@@ -83,6 +85,7 @@ namespace LS.MapClean.Addin.Utils
                 }
                 ip = ipNext;
             }
+            DoubleExtensions.STolerance = oldTol;
             return result;
         }
 
