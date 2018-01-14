@@ -1,5 +1,8 @@
 # Dependency directories
-Develop/Framework
+Develop/Framework/GalaSoft.MvvmLight (NET4)/bin
+Develop/Framework/GalaSoft.MvvmLight (NET4)/obj
+Develop/Framework/GalaSoft.MvvmLight.Extras (NET4)/bin
+Develop/Framework/GalaSoft.MvvmLight.Extras (NET4)/obj
 Develop/RoomDetector/3rdParty
 Develop/3rdParty
 Develop/RoomDetector/Source/DbxUtils/bin
@@ -10,3 +13,4 @@ Develop/RoomDetector/Source/Solutions/LS.MapClean.v12.suo
 Develop/RoomDetector/Source/Solutions/packages
 Develop/RoomDetector/Source/TopologyTools/bin
 Develop/RoomDetector/Source/TopologyTools/obj
+*.user
