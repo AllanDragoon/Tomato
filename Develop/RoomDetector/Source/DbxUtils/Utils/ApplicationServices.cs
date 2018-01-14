@@ -215,13 +215,13 @@ namespace DbxUtils.Utils
             try
             {
                 // CLSID: HKEY_CLASSES_ROOT\AutoCAD.Application\CLSID
-                using (var clsIdRegkey = Registry.ClassesRoot.OpenSubKey(/*MSG0*/"AutoCAD.Application\\CLSID"))
+                using (var clsIdRegkey = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(/*MSG0*/"AutoCAD.Application\\CLSID"))
                 {
                     var clsId = (string)clsIdRegkey.GetValue(String.Empty);
                     var acadRegPath = "CLSID\\" + clsId + "\\LocalServer32";
 
                     // Executable: HKEY_CLASSES_ROOT\CLSID\CLSID = {6D7AE628-FF41-4CD3-91DD-34825BB1A251}\LocalServer32
-                    using (var acadRegkey = Registry.ClassesRoot.OpenSubKey(acadRegPath))
+                    using (var acadRegkey = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(acadRegPath))
                     {
                         executablePath = (string)acadRegkey.GetValue(String.Empty);
 

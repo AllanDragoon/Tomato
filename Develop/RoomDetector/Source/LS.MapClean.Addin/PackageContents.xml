@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ApplicationPackage SchemaVersion="1.0" AutodeskProduct="AutoCAD" ProductType="Application" Name="LS.MapClean" AppVersion="1.0.0" Description="LS.MapClean: Clean dwg entities for map.">
   <Components Description="2012 Parts">
-    <RuntimeRequirements SupportPath="./Contents/Resources" OS="Win32|Win64" Platform="AutoCAD|Civil3D|Map|AIS|ADT|ACADM|MEP|ACADE|PNID|Plant3D|Civil|LDT" SeriesMin="R18.2" SeriesMax="R18.2" />
+    <RuntimeRequirements SupportPath="./Contents/Resources" OS="Win32|Win64" Platform="AutoCAD|Civil3D|Map|AIS|ADT|ACADM|MEP|ACADE|PNID|Plant3D|Civil|LDT"/>
     <ComponentEntry AppName="MapClean" Version="1.1.1" ModuleName="./Contents/Windows/2012/LS.MapClean.Addin.dll" AppDescription="Map Clean" LoadOnCommandInvocation="True" LoadOnAutoCADStartup="True">
       <Commands>
         <Command Local="MCTest" Global="MCTest" />

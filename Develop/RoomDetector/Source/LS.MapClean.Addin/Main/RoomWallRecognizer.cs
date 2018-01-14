@@ -73,9 +73,12 @@ namespace LS.MapClean.Addin.Main
             return result;
         }
 
-        private static /*TBD*/void SearchWalls(IEnumerable<Entity> entities)
+        private static void SearchWalls(IEnumerable<Line> entities)
         {
-            throw new NotImplementedException();
+            foreach (Line line in entities)
+            {
+                LineSegment3d lineSeg2 = WallRecognizer.getWallline(line, entities);  // Daniel: entities should be instead
+            }
         }
 
         private static IEnumerable<Entity> GetWallCenterLines( /*TBD*/)
