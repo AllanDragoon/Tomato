@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Autodesk.AutoCAD.ApplicationServices;
@@ -13,12 +14,18 @@ using TopologyTools.Utils;
 
 namespace LS.MapClean.Addin.Main
 {
+    internal class ApartmentContourInfo
+    {
+        public List<LineSegment3d> Contour { get; set; }
+        public List<LineSegment3d> InternalSegments { get; set; }
+    }
+
     internal class ApartmentContour
     {
-        public static List<Point2d> CalcContour(Document doc, IEnumerable<ObjectId> objectIdsList)
+        public static ApartmentContourInfo CalcContour(Document doc, IEnumerable<ObjectId> objectIdsList)
         {
             var newCreatedIds = new List<ObjectId>();
-            IEnumerable<ObjectId> polygonIds = new List<ObjectId>();
+            IEnumerable<ObjectId> curveIds = new List<ObjectId>();
             IEnumerable<ObjectId> splitSourceIds = new List<ObjectId>();
             List<ObjectId> duplicateIds = new List<ObjectId>();
 
@@ -107,7 +114,7 @@ namespace LS.MapClean.Addin.Main
                     duplicateIds.Add(zeroLengthId);
                 }
 
-                polygonIds = checkIds;
+                curveIds = checkIds;
 
                 //// Test code
                 //using (var transaction = doc.Database.TransactionManager.StartTransaction())
@@ -126,9 +133,9 @@ namespace LS.MapClean.Addin.Main
             }
 
             // 2. Make polygons.
-            doc.Editor.WriteMessage("开始造闭合多边形...");
+            doc.Editor.WriteMessage("开始分析外墙轮廓...");
             var resultIds = new List<ObjectId>();
-            if (polygonIds.Any())
+            if (curveIds.Any())
             {
                 var color = Color.FromColorIndex(ColorMethod.ByAci, 3); // Green
                 ObjectId layerId = LayerUtils.AddNewLayer(doc.Database, "temp-poly", "Continuous", color);
@@ -136,7 +143,7 @@ namespace LS.MapClean.Addin.Main
                 using (var tolerance = new SafeToleranceOverride())
                 using (var waitCursor = new WaitCursorSwitcher())
                 {
-                    //var polygons = MinimalLoopSearcher2.Search(polygonIds, doc);
+                    //var polygons = MinimalLoopSearcher2.Search(curveIds, doc);
                     //using (var transaction = doc.Database.TransactionManager.StartTransaction())
                     //{
                     //    var modelspaceId = SymbolUtilityServices.GetBlockModelSpaceId(doc.Database);
@@ -151,24 +158,10 @@ namespace LS.MapClean.Addin.Main
                     //    }
                     //    transaction.Commit();
                     //}
-                    resultIds = NtsUtils.PolygonizeLineStrings(doc.Database, polygonIds, "temp-poly", color, 0.0001);
+                    resultIds = NtsUtils.PolygonizeLineStrings(doc.Database, curveIds, "temp-poly", color, 0.0001);
                 }
             }
-
-            using (var tr = doc.Database.TransactionManager.StartTransaction())
-            {
-                foreach (var newCreatedId in newCreatedIds)
-                {
-                    if (newCreatedId.IsErased)
-                        continue;
-                    var dbObj = tr.GetObject(newCreatedId, OpenMode.ForWrite);
-                    dbObj.Erase();
-                }
-
-                ////////////////////////////////////////////////////////////////////////////////////////
-                tr.Commit();
-            }
-            doc.Editor.WriteMessage("造多边形成功！");
+            
             // 3. Union all polygons
             var database = doc.Database;
             var partitioner = new DrawingPartitioner(database);
@@ -205,26 +198,97 @@ namespace LS.MapClean.Addin.Main
                     resultPoints.Reverse();
                 }
 
-                using (var transaction = database.TransactionManager.StartTransaction())
+                //// Test code !
+                //using (var transaction = database.TransactionManager.StartTransaction())
+                //{
+                //    var modelspaceId = SymbolUtilityServices.GetBlockModelSpaceId(database);
+                //    var modelspace = (BlockTableRecord)transaction.GetObject(modelspaceId, OpenMode.ForWrite);
+
+                //    var color = Color.FromColorIndex(ColorMethod.ByAci, 3); // Green
+                //    ObjectId layerId = LayerUtils.AddNewLayer(doc.Database, "temp-poly", "Continuous", color);
+                //    largestPolyline.Color = color;
+                //    largestPolyline.LayerId = layerId;
+                //    modelspace.AppendEntity(largestPolyline);
+                //    transaction.AddNewlyCreatedDBObject(largestPolyline, add: true);
+
+
+                //    foreach (var polyline in polylines)
+                //    {
+                //        if (polyline == largestPolyline)
+                //            continue;
+
+                //        polyline.Color = color;
+                //        polyline.LayerId = layerId;
+                //        modelspace.AppendEntity(polyline);
+                //        transaction.AddNewlyCreatedDBObject(polyline, add: true);
+                //    }
+
+                //    transaction.Commit();
+                //}
+            }
+
+            // Get contour linesegments from resultPoints
+            var contourSegments = new List<LineSegment3d>();
+            var innerSegments = new List<LineSegment3d>();
+            if (resultPoints.Count > 0)
+            {
+                for (var i = 0; i < resultPoints.Count - 1; i++)
                 {
-                    var modelspaceId = SymbolUtilityServices.GetBlockModelSpaceId(database);
-                    var modelspace = (BlockTableRecord)transaction.GetObject(modelspaceId, OpenMode.ForWrite);
+                    var start = new Point3d(resultPoints[i].X, resultPoints[i].Y, 0);
+                    var end = new Point3d(resultPoints[i + 1].X, resultPoints[i + 1].Y, 0);
+                    var segment = new LineSegment3d(start, end);
+                    contourSegments.Add(segment);
+                }
+                // Get inner linesegments
+                using (var tr = doc.Database.TransactionManager.StartTransaction())
+                {
+                    var contourArray = resultPoints.ToArray();
+                    foreach (var objId in curveIds)
+                    {
+                        var point2ds = CurveUtils.GetDistinctVertices2D(objId, tr);
+                        
+                        for (var i = 0; i < point2ds.Count - 1; i++)
+                        {
+                            var start = point2ds[i];
+                            var end = point2ds[i + 1];
+                            if (start.IsEqualTo(end))
+                                continue;
 
-                    var color = Color.FromColorIndex(ColorMethod.ByAci, 3); // Green
-                    ObjectId layerId = LayerUtils.AddNewLayer(doc.Database, "temp-poly", "Continuous", color);
-                    largestPolyline.Color = color;
-                    largestPolyline.LayerId = layerId;
-                    modelspace.AppendEntity(largestPolyline);
-                    transaction.AddNewlyCreatedDBObject(largestPolyline, add: true);
-
-                    transaction.Commit();
+                            // TODO: no need to calculate again for startInPoly.
+                            var startInPoly = ComputerGraphics.IsInPolygon2(start, contourArray);
+                            var endInPoly = ComputerGraphics.IsInPolygon2(end, contourArray);
+                            
+                            if ((startInPoly == 0 && endInPoly == 0) ||
+                                (startInPoly == -1 && endInPoly == -1))
+                                continue;
+                            var segment = new LineSegment3d(new Point3d(start.X, start.Y, 0),
+                                new Point3d(end.X, end.Y, 0));
+                            innerSegments.Add(segment);
+                        }
+                    }
+                    tr.Commit();
                 }
             }
 
             // 5. Delete the polygons of resultIds
             using (var tr = doc.Database.TransactionManager.StartTransaction())
             {
-                foreach (var newCreatedId in resultIds)
+                foreach (var objId in resultIds)
+                {
+                    if (objId.IsErased)
+                        continue;
+                    var dbObj = tr.GetObject(objId, OpenMode.ForWrite);
+                    dbObj.Erase();
+                }
+
+                ////////////////////////////////////////////////////////////////////////////////////////
+                tr.Commit();
+            }
+
+            // Delete the splited curves
+            using (var tr = doc.Database.TransactionManager.StartTransaction())
+            {
+                foreach (var newCreatedId in newCreatedIds)
                 {
                     if (newCreatedId.IsErased)
                         continue;
@@ -236,7 +300,12 @@ namespace LS.MapClean.Addin.Main
                 tr.Commit();
             }
 
-            return resultPoints;
+            var result = new ApartmentContourInfo()
+            {
+                Contour = contourSegments,
+                InternalSegments = innerSegments
+            };
+            return result;
         }
     }
 }

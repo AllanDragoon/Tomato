@@ -9,13 +9,17 @@ using LS.MapClean.Addin.Utils;
 
 namespace LS.MapClean.Addin.Main
 {
+    public class WallInfor {
+        public LineSegment3d outline;
+        public List<LineSegment3d> innerlines;
+        public WallInfor next = null;
+    }
     public class WallRecognizer
     {
         public static int MILLIMETER_TO_METER = 1000;
         public static double PIXEL_TO_M_FACTOR = 136.70; // how many pixels indicate one Meter in canvas (=1/0.0254/0.288) where 0.288 is the PIXEL_TO_INCHES_FACTOR in flash version.
         public static double minWallWidth = 0.03 * MILLIMETER_TO_METER; // 30mm
         public static double maxWallWidth = 1 * MILLIMETER_TO_METER; //1000mm
-        public static double width = maxWallWidth + 1;
         public static  Autodesk.AutoCAD.Geometry.Tolerance tol = new Autodesk.AutoCAD.Geometry.Tolerance(0.01, 0.01);
 
         public static Vector3d getLineDirection(Line line)
@@ -47,108 +51,172 @@ namespace LS.MapClean.Addin.Main
             return (overlap != null);
         }
 
-        public static LineSegment3d getWallline(Line line, IEnumerable<Line> entities)
+        public static WallInfor getWallinfors(List<LineSegment3d> outLines, List<LineSegment3d> allLines)
         {
-            // step 1: get the parallel lines in the loop
-            var dir = WallRecognizer.getLineDirection(line);
+            WallInfor wallInfor = new WallInfor();
+            // step1: get the biggest length of outline
+            var index = 0;
+            var length = outLines[index].Length;
+            int size = outLines.Count;
+            for (int i = 1; i < size; i++)
+            {
+                if (DoubleExtensions.Larger(outLines[i].Length, length))
+                {
+                    index = i;
+                    length = outLines[index].Length;
+                }
+            }
+
+            var currentWallInfor = wallInfor;
+            // step2: get the outline wall infor
+            for (int i = 0; i < size; i++)
+            {
+                var line = outLines[(i + index) % size];
+                // skip the line if it is in part exist wall infor
+               // if (!isPartOfWallinfor(line, wallInfor))
+                {
+                    List<LineSegment3d> innerlines = WallRecognizer.getWallline(line, allLines);
+                    // set the wall infor
+                    currentWallInfor.outline = line;
+                    currentWallInfor.innerlines = innerlines;
+                    currentWallInfor.next = new WallInfor();
+                    currentWallInfor = currentWallInfor.next;
+                }
+            }
+
+            return wallInfor;
+        }
+
+        public static bool isPartOfWallinfor(LineSegment3d line, WallInfor wallInfor)
+        {
+            WallInfor tmpWallInfor = wallInfor;
+            List<Point3d> points = new List<Point3d>();
+            while (tmpWallInfor != null)
+            {
+                if (tmpWallInfor.outline != null)
+                {
+                    if (!points.Contains(tmpWallInfor.outline.StartPoint))
+                    {
+                        points.Add(tmpWallInfor.outline.StartPoint);
+                    }
+                    if (!points.Contains(tmpWallInfor.outline.EndPoint))
+                    {
+                        points.Add(tmpWallInfor.outline.EndPoint);
+                    }
+                }
+
+                if (tmpWallInfor.innerlines != null)
+                {
+                    foreach (LineSegment3d innerline in tmpWallInfor.innerlines)
+                    {
+                        if (!points.Contains(innerline.StartPoint))
+                        {
+                            points.Add(innerline.StartPoint);
+                        }
+
+                        if (!points.Contains(innerline.EndPoint))
+                        {
+                            points.Add(innerline.EndPoint);
+                        }
+                    }
+                }
+                tmpWallInfor = tmpWallInfor.next;
+            }
+
+            return points.Contains(line.StartPoint) && points.Contains(line.EndPoint);
+        }
+
+        public static void updateInnerLines(LineSegment3d line, double dist, List<LineSegment3d> innerlines)
+        {
+            bool haveLinesOverlapped = false;
+            foreach (LineSegment3d innerLine in innerlines)
+            {
+                if (WallRecognizer.isSegmentsProjectionOverlapped(line, innerLine))
+                {
+                    haveLinesOverlapped = true;
+                    break;
+                }
+            }
+
+            if (haveLinesOverlapped)
+            {
+                // update the innerlines
+                List<LineSegment3d> preparelines = new List<LineSegment3d>();
+                foreach (LineSegment3d innerLine in innerlines)
+                {
+                    if (WallRecognizer.isSegmentsProjectionOverlapped(line, innerLine))
+                    {
+                        Line3d innerline3d = WallRecognizer.toLine3d(innerLine.StartPoint, innerLine.EndPoint);
+                        double innerDist = innerline3d.GetDistanceTo(line.StartPoint);
+                        if (DoubleExtensions.Larger(innerDist, dist))
+                        {
+                            if (!innerlines.Contains(line))
+                            {
+                                //preparelines.Add(line);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (!innerlines.Contains(innerLine))
+                        {
+                            //preparelines.Add(line);
+                        }
+                    }
+                }
+
+                // copy preparelines to innerlines
+                innerlines.Clear();
+                foreach (LineSegment3d innerLine in preparelines)
+                {
+                    innerlines.Add(innerLine);
+                }
+            }
+            else
+            {
+                innerlines.Add(line);
+            }
+        }
+
+        public static List<LineSegment3d> getWallline(LineSegment3d line, IEnumerable<LineSegment3d> entities)
+        {
+            double width = maxWallWidth + 1;
+
+            // step 1: get the parallel lines in the loop: skip the colinear line
+            var dir = line.Direction;
             var parallelLines = new List<LineSegment3d>();
-            foreach (Line tmpLine in entities)
+            foreach (LineSegment3d tmpLine in entities)
             {
                 if (line != tmpLine)
                 {
-                    var prepareDir = WallRecognizer.getLineDirection(tmpLine);
-                    if (dir.IsParallelTo(prepareDir))
+                    if (dir.IsParallelTo(tmpLine.Direction) && 
+                        (!tmpLine.IsOn(line.StartPoint) || tmpLine.IsOn(line.EndPoint))) // check if colinear line
                         parallelLines.Add(WallRecognizer.toLineSegment3d(tmpLine.StartPoint, tmpLine.EndPoint));
                 }
             }
 
-            // step 2: [Daniel TODO: wall contains opening] check if colinear line
-            var pt1InSegment = false;
-            foreach (LineSegment3d tmplineSeg in parallelLines)
+            List<LineSegment3d> innerlines = new List<LineSegment3d>();
+            // step 2: get poper innerlines
+            foreach (LineSegment3d line1 in parallelLines)
             {
-                // to see if whether point in line segment.
-                if (tmplineSeg.IsOn(line.StartPoint))
-                {
-                    pt1InSegment = true;
-                    break;
-                }
-            }
-            if (!pt1InSegment)
-                return null;
-
-            var pt2InSegment = false;
-            foreach (LineSegment3d tmplineSeg in parallelLines)
-            {
-                // to see if whether point in line segment.
-                if (tmplineSeg.IsOn(line.EndPoint))
-                {
-                    pt2InSegment = true;
-                    break;
-                }
-            }
-            if (!pt2InSegment)
-                return null;
-
-            LineSegment3d prepareLine = null;
-            LineSegment3d lineSeg = WallRecognizer.toLineSegment3d(line.StartPoint, line.EndPoint);
-            // step 3: get poper distance for wall width
-            foreach (LineSegment3d lineSeg1 in parallelLines)
-            {
-                Line3d line3d = WallRecognizer.toLine3d(lineSeg1.StartPoint, lineSeg1.EndPoint); 
+                Line3d line3d = WallRecognizer.toLine3d(line1.StartPoint, line1.EndPoint);
                 // skip the colinear line and the two lines should be projection overlapped
-                if (!line3d.IsOn(line.StartPoint) &&
-                     WallRecognizer.isSegmentsProjectionOverlapped(lineSeg1, lineSeg))
+                if (!line3d.IsOn(line.StartPoint) && WallRecognizer.isSegmentsProjectionOverlapped(line1, line))
                 {
-                    // to skip following case: the top lines may be openning (window) cross section
-                    //    starPt ------ endPt
-                    //           |    |
-                    //    pt1-----    ------------pt2
-                    //    |                        |
-                    //    |                        |
-                    //    |                        |
-                    //    --------------------------
-                    // get the related lines for the two points (pt1 or pt2)
-                    var bHasOverlapped = false;
-                    foreach (LineSegment3d lineSeg2 in parallelLines)
+                    double dist = line.GetDistanceTo(line1.StartPoint);
+                    // pixel to millemeter
+                    dist = (dist * MILLIMETER_TO_METER) / PIXEL_TO_M_FACTOR;
+                    // the dist should > minWallWidth & < maxWallWidth
+                    if (DoubleExtensions.Larger(dist, minWallWidth) && DoubleExtensions.Larger(maxWallWidth, dist))
                     {
-                        if (line3d.StartPoint.IsEqualTo(lineSeg2.StartPoint, tol) ||
-                            line3d.StartPoint.IsEqualTo(lineSeg2.EndPoint, tol) ||
-                            line3d.EndPoint.IsEqualTo(lineSeg2.StartPoint, tol) ||
-                            line3d.EndPoint.IsEqualTo(lineSeg2.EndPoint, tol))
-                        {
-                            if (WallRecognizer.isSegmentsProjectionOverlapped(lineSeg1, lineSeg2))
-                            {
-                                bHasOverlapped = true;
-                                break;
-                            }
-                        }
-                    }
+                        //width = Math.Round(dist);
 
-                    if (bHasOverlapped)
-                    {
-                        double dist = lineSeg.GetDistanceTo(line3d.StartPoint);
-                        // pixel to millemeter
-                        dist = (dist * MILLIMETER_TO_METER) / PIXEL_TO_M_FACTOR;
-                        // the dist should > minWallWidth & < maxWallWidth
-                        if (DoubleExtensions.Larger(dist, minWallWidth) &&
-                            DoubleExtensions.Larger(maxWallWidth, dist) &&
-                            DoubleExtensions.Larger(width, dist))
-                        {
-                            width = Math.Round(dist);
-                            prepareLine = lineSeg;
-                            //var perpendicular = hsw.util.Math.getPerpendicularIntersect(pt1, starPt, endPt);
-                            //prepareLine = new goog.math.Line(pt1.x, pt1.y, perpendicular.x, perpendicular.y);
-                        }
+                        updateInnerLines(line1, dist, innerlines);
                     }
                 }
             }
 
-            if (DoubleExtensions.LargerOrEqual(width, minWallWidth) && 
-                DoubleExtensions.LargerOrEqual(maxWallWidth, width)) {
-                return  prepareLine;
-            }
-
-            return null;
+            return innerlines;
         }
     }
 }
