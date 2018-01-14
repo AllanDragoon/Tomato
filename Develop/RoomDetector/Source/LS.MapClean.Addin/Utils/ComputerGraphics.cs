@@ -46,38 +46,38 @@ namespace LS.MapClean.Addin.Utils
             //returns 0 if false, +1 if true, -1 if pt ON polygon boundary
             //See "The Point in Polygon Problem for Arbitrary Polygons" by Hormann & Agathos
             //http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.88.5498&rep=rep1&type=pdf
-            int result = 0, cnt = path.Count;
+            int result = 0, cnt = path.Length;
             if (cnt < 3) return 0;
-            IntPoint ip = path[0];
+            var ip = path[0];
             for (int i = 1; i <= cnt; ++i)
             {
-                IntPoint ipNext = (i == cnt ? path[0] : path[i]);
-                if (ipNext.Y == pt.Y)
+                var ipNext = (i == cnt ? path[0] : path[i]);
+                if (ipNext.Y.EqualsWithTolerance(pt.Y))
                 {
-                    if ((ipNext.X == pt.X) || (ip.Y == pt.Y &&
-                      ((ipNext.X > pt.X) == (ip.X < pt.X)))) return -1;
+                    if (ipNext.X.EqualsWithTolerance(pt.X) || (ip.Y.EqualsWithTolerance(pt.Y) &&
+                      (ipNext.X.Larger(pt.X) == ip.X.Smaller(pt.X)))) return -1;
                 }
-                if ((ip.Y < pt.Y) != (ipNext.Y < pt.Y))
+                if (ip.Y.Smaller(pt.Y) != ipNext.Y.Smaller(pt.Y))
                 {
-                    if (ip.X >= pt.X)
+                    if (ip.X.LargerOrEqual(pt.X))
                     {
-                        if (ipNext.X > pt.X) result = 1 - result;
+                        if (ipNext.X.Larger(pt.X)) result = 1 - result;
                         else
                         {
                             double d = (double)(ip.X - pt.X) * (ipNext.Y - pt.Y) -
                               (double)(ipNext.X - pt.X) * (ip.Y - pt.Y);
-                            if (d == 0) return -1;
-                            else if ((d > 0) == (ipNext.Y > ip.Y)) result = 1 - result;
+                            if (d.EqualsWithTolerance(0)) return -1;
+                            else if (d.Larger(0) == ipNext.Y.Larger(ip.Y)) result = 1 - result;
                         }
                     }
                     else
                     {
-                        if (ipNext.X > pt.X)
+                        if (ipNext.X.Larger(pt.X))
                         {
                             double d = (double)(ip.X - pt.X) * (ipNext.Y - pt.Y) -
                               (double)(ipNext.X - pt.X) * (ip.Y - pt.Y);
-                            if (d == 0) return -1;
-                            else if ((d > 0) == (ipNext.Y > ip.Y)) result = 1 - result;
+                            if (d.EqualsWithTolerance(0)) return -1;
+                            else if (d.Larger(0) == ipNext.Y.Larger(ip.Y)) result = 1 - result;
                         }
                     }
                 }
