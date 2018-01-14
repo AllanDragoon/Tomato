@@ -47,7 +47,8 @@ namespace LS.MapClean.Addin.Main
             }
 
             // [Daniel] retrun null if no overlap???
-            LinearEntity3d overlap = lineseg1.Overlap(lineseg2);
+            LineSegment3d projectSeg2 = new LineSegment3d(projectPt1, projectPt2);
+            LinearEntity3d overlap = lineseg1.Overlap(projectSeg2);
             return (overlap != null);
         }
 
@@ -132,12 +133,12 @@ namespace LS.MapClean.Addin.Main
             return false;
         }
 
-        public static void updateInnerLines(LineSegment3d line, double dist, List<LineSegment3d> innerlines)
+        public static void updateInnerLines(LineSegment3d line, LineSegment3d prepareline, double dist, List<LineSegment3d> innerlines)
         {
             bool haveLinesOverlapped = false;
             foreach (LineSegment3d innerLine in innerlines)
             {
-                if (WallRecognizer.isSegmentsProjectionOverlapped(line, innerLine))
+                if (WallRecognizer.isSegmentsProjectionOverlapped(prepareline, innerLine))
                 {
                     haveLinesOverlapped = true;
                     break;
@@ -150,15 +151,15 @@ namespace LS.MapClean.Addin.Main
                 List<LineSegment3d> preparelines = new List<LineSegment3d>();
                 foreach (LineSegment3d innerLine in innerlines)
                 {
-                    if (WallRecognizer.isSegmentsProjectionOverlapped(line, innerLine))
+                    if (WallRecognizer.isSegmentsProjectionOverlapped(prepareline, innerLine))
                     {
                         Line3d innerline3d = WallRecognizer.toLine3d(innerLine.StartPoint, innerLine.EndPoint);
                         double innerDist = innerline3d.GetDistanceTo(line.StartPoint);
                         if (DoubleExtensions.Larger(innerDist, dist))
                         {
-                            if (!preparelines.Contains(line))
+                            if (!preparelines.Contains(prepareline))
                             {
-                                preparelines.Add(line);
+                                preparelines.Add(prepareline);
                             }
                         }
                         else
@@ -171,9 +172,9 @@ namespace LS.MapClean.Addin.Main
                     }
                     else
                     {
-                        if (!preparelines.Contains(line))
+                        if (!preparelines.Contains(innerLine))
                         {
-                            preparelines.Add(line);
+                            preparelines.Add(innerLine);
                         }
                     }
                 }
@@ -187,7 +188,7 @@ namespace LS.MapClean.Addin.Main
             }
             else
             {
-                innerlines.Add(line);
+                innerlines.Add(prepareline);
             }
         }
 
@@ -216,16 +217,19 @@ namespace LS.MapClean.Addin.Main
                 // skip the colinear line and the two lines should be projection overlapped
                 if (!line3d.IsOn(line.StartPoint) && WallRecognizer.isSegmentsProjectionOverlapped(line1, line))
                 {
-                    double dist = line.GetDistanceTo(line1.StartPoint);
-                    // pixel to millemeter
+                    double dist = line3d.GetDistanceTo(line.StartPoint);
+                    if (DoubleExtensions.Larger(500, dist))
+                    {
+                        updateInnerLines(line, line1, dist, innerlines);
+                    }
+                    /*// pixel to millemeter
                     dist = (dist * MILLIMETER_TO_METER) / PIXEL_TO_M_FACTOR;
                     // the dist should > minWallWidth & < maxWallWidth
                     if (DoubleExtensions.Larger(dist, minWallWidth) && DoubleExtensions.Larger(maxWallWidth, dist))
                     {
                         //width = Math.Round(dist);
-
                         updateInnerLines(line1, dist, innerlines);
-                    }
+                    }*/
                 }
             }
 
